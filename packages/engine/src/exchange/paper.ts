@@ -56,8 +56,9 @@ export class PaperExchange implements ExchangeAdapter {
     let equity = this.cash;
     for (const [symbol, p] of this.positions) {
       const t = this.ticks.get(symbol);
-      const mark = t ? (p.side === Side.Buy ? t.bid : t.ask) : p.avgEntry;
-      equity += p.size * mark;
+      const mark = t ? t.bid : p.avgEntry;
+      if (p.side === Side.Buy) equity += p.size * mark;
+      else equity -= p.size * mark;
     }
     return [{ asset: "USDC", available: this.cash, total: equity }];
   }
@@ -105,12 +106,13 @@ export class PaperExchange implements ExchangeAdapter {
     let order: Order;
     if (fillPrice !== null) {
       order = this.buildOrder(n, id, OrderStatus.Filled, fillPrice, Math.abs(n.size));
+      this.orders.set(id, order);
       this.applyFill(n, fillPrice, Math.abs(n.size));
       for (const cb of this.fillCbs) cb(order);
     } else {
       order = this.buildOrder(n, id, OrderStatus.Open, null, 0);
+      this.orders.set(id, order);
     }
-    this.orders.set(id, order);
     return order;
   }
 
@@ -155,7 +157,7 @@ export class PaperExchange implements ExchangeAdapter {
       const px = o.side === Side.Buy ? t.ask : t.bid;
       const crossed = o.side === Side.Buy ? px <= o.price : px >= o.price;
       if (!crossed) continue;
-      const filled: Order = { ...o, status: OrderStatus.Filled, avgFillPrice: o.price, filledSize: o.size, filledAt: now() };
+      const filled: Order = { ...o, status: OrderStatus.Filled, avgFillPrice: o.price, filledSize: Math.abs(o.size), filledAt: now() };
       this.orders.set(id, filled);
       this.applyFill(o, o.price, Math.abs(o.size));
       for (const cb of this.fillCbs) cb(filled);
@@ -168,7 +170,7 @@ export class PaperExchange implements ExchangeAdapter {
       this.addPosition(n.symbol, size, px);
     } else {
       this.cash += px * size;
-      this.reducePosition(n.symbol, size);
+      this.reducePosition(n.symbol, size, px);
     }
   }
 
@@ -190,14 +192,16 @@ export class PaperExchange implements ExchangeAdapter {
     }
   }
 
-  private reducePosition(symbol: string, size: number): void {
+  private reducePosition(symbol: string, size: number, px: number): void {
     const cur = this.positions.get(symbol);
     if (!cur || cur.size === 0) {
-      this.positions.set(symbol, { side: Side.Sell, size, avgEntry: 0 });
+      this.positions.set(symbol, { side: Side.Sell, size, avgEntry: px });
       return;
     }
     if (cur.side === Side.Sell) {
-      this.positions.set(symbol, { side: Side.Sell, size: cur.size + size, avgEntry: cur.avgEntry });
+      const total = cur.size + size;
+      const avg = (cur.avgEntry * cur.size + px * size) / total;
+      this.positions.set(symbol, { side: Side.Sell, size: total, avgEntry: avg });
       return;
     }
     const remaining = cur.size - size;
@@ -206,7 +210,7 @@ export class PaperExchange implements ExchangeAdapter {
     } else if (remaining === 0) {
       this.positions.delete(symbol);
     } else {
-      this.positions.set(symbol, { side: Side.Sell, size: Math.abs(remaining), avgEntry: 0 });
+      this.positions.set(symbol, { side: Side.Sell, size: Math.abs(remaining), avgEntry: px });
     }
   }
 }

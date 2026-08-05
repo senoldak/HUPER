@@ -46,4 +46,18 @@ describe("PaperExchange", () => {
     expect(bal.available).toBeCloseTo(899 + 110, 6);
     expect((await ex.openPositions())).toHaveLength(0);
   });
+
+  it("short equity rises when price falls", async () => {
+    const ex = new PaperExchange({ initialBalance: 1000 });
+    ex.pushTick({ symbol: "BTC", bid: 110, ask: 112, mid: 111, timestamp: 1 });
+    await ex.placeOrder({ symbol: "BTC", side: Side.Sell, price: null, size: 1 }); // opens short at bid 110
+    ex.pushTick({ symbol: "BTC", bid: 100, ask: 102, mid: 101, timestamp: 2 });   // price falls
+
+    const bal = (await ex.balances())[0];
+    expect(bal.available).toBeCloseTo(1000 + 110, 6);        // cash holds sale proceeds
+    expect(bal.total).toBeCloseTo(1000 + (110 - 100), 6);    // equity = cash - size*mark = 1110 - 100
+    const pos = (await ex.openPositions())[0];
+    expect(pos.side).toBe(Side.Sell);
+    expect(pos.avgEntry).toBe(110);
+  });
 });
