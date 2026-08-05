@@ -1188,9 +1188,8 @@ export class DcaStrategy implements Strategy {
     }
   }
 
-  async onStop(ctx: StrategyCtx): Promise<void> {
-    const pos = (await ctx.getPositions())[0];
-    if (pos) await ctx.createOrder({ symbol: ctx.symbol, side: "sell", type: OrderType.Market, price: null, size: pos.size, reduceOnly: true });
+  async onStop(_ctx: StrategyCtx): Promise<void> {
+    // no-op: position flattening is owned solely by EmergencyStop (human decision, Task 5)
   }
 }
 ```
