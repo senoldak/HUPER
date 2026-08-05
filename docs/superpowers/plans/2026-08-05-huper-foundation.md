@@ -937,6 +937,7 @@ Expected: PASS (4 it)
 import {
   ExchangeClient,
   HttpTransport,
+  InfoClient,
   SubscriptionClient,
   WebSocketTransport,
 } from "@nktkas/hyperliquid";
@@ -964,12 +965,14 @@ export class LiveExchange implements ExchangeAdapter {
   readonly mode = "live" as const;
 
   private exchange!: ExchangeClient;
+  private info!: InfoClient;
   private subs!: SubscriptionClient;
   private wallet: ReturnType<typeof privateKeyToAccount>;
   private ticks = new Map<string, PriceTick>();
   private tickCbs = new Set<(t: PriceTick) => void>();
   private fillCbs = new Set<(o: Order) => void>();
   private books = new Map<string, OrderBook>();
+  private ordersPending = new Map<string, Order>();
 
   constructor(private opts: LiveOptions) {
     this.wallet = privateKeyToAccount(opts.privateKey as `0x${string}`);
@@ -980,7 +983,9 @@ export class LiveExchange implements ExchangeAdapter {
       transport: new HttpTransport({ url: this.opts.rpcUrl }),
       wallet: this.wallet,
     });
-
+    this.info = new InfoClient({
+      transport: new HttpTransport({ url: this.opts.rpcUrl }),
+    });
     this.subs = new SubscriptionClient({
       transport: new WebSocketTransport(this.opts.wsUrl),
     });
@@ -1005,13 +1010,13 @@ export class LiveExchange implements ExchangeAdapter {
   }
 
   async balances(): Promise<Wallet[]> {
-    const state = await this.exchange.info.userState({ user: this.wallet.address });
-    const margin = state.marginSummary;
-    return [{ asset: "USDC", available: Number(margin.accountValue), total: Number(margin.accountValue) }];
+    const state = await this.info.clearinghouseState({ user: this.wallet.address });
+    const value = Number(state.marginSummary.accountValue);
+    return [{ asset: "USDC", available: value, total: value }];
   }
 
   async openPositions(): Promise<Position[]> {
-    const state = await this.exchange.info.userState({ user: this.wallet.address });
+    const state = await this.info.clearinghouseState({ user: this.wallet.address });
     return state.assetPositions.map((ap) => {
       const p = ap.position;
       const size = Number(p.szi);
@@ -1027,7 +1032,7 @@ export class LiveExchange implements ExchangeAdapter {
 
   async placeOrder(n: NewOrder): Promise<Order> {
     const order = {
-      a: 0,
+      a: 0, // NOTE: asset index 0 = BTC placeholder; Phase 2 maps symbol→index via exchange meta
       b: n.side === Side.Buy,
       p: n.type === OrderType.Market ? "" : (n.price ?? 0).toFixed(2),
       s: String(n.size),
@@ -1037,7 +1042,7 @@ export class LiveExchange implements ExchangeAdapter {
     const res = await this.exchange.order({ orders: [order], grouping: "na" });
     const status = res.response.data.statuses?.[0] as
       | { resting: { oid: number } }
-      | { filled: { oid: number; totFilled: string; avgPx: string } }
+      | { filled: { oid: number; totalSz: string; avgPx: string } }
       | { error: string }
       | undefined;
 
@@ -1050,13 +1055,12 @@ export class LiveExchange implements ExchangeAdapter {
       return o;
     }
     const f = status.filled;
-    return resultToOrder(n, "filled", f.oid, f.totFilled, f.avgPx);
+    return resultToOrder(n, "filled", f.oid, f.totalSz, f.avgPx);
   }
 
   async cancelOrder(orderId: string): Promise<boolean> {
-    const o = this.ordersPending.get(orderId);
-    if (!o) return false;
-    await this.exchange.cancel({ cancels: [{ oid: Number(orderId) }] });
+    if (!this.ordersPending.has(orderId)) return false;
+    await this.exchange.cancel({ cancels: [{ a: 0, o: Number(orderId) }] });
     this.ordersPending.delete(orderId);
     return true;
   }
@@ -1073,16 +1077,18 @@ export class LiveExchange implements ExchangeAdapter {
 
   async subscribeBook(symbol: string): Promise<void> {
     await this.subs.l2Book({ coin: symbol }, (data) => {
-      const t = bookToTick(symbol, {
-        bids: data.levelBid as [string, string][],
-        asks: data.levelAsk as [string, string][],
-      }, Date.now());
-      this.books.set(symbol, { symbol, bids: t.bid ? [[t.bid, 0]] : [], asks: t.ask ? [[t.ask, 0]] : [], timestamp: t.timestamp });
+      const bids = data.levels[0].map((l) => [l.px, l.sz] as [string, string]);
+      const asks = data.levels[1].map((l) => [l.px, l.sz] as [string, string]);
+      const t = bookToTick(symbol, { bids, asks }, Date.now());
+      this.books.set(symbol, {
+        symbol,
+        bids: t.bid ? [[t.bid, 0]] : [],
+        asks: t.ask ? [[t.ask, 0]] : [],
+        timestamp: t.timestamp,
+      });
       this.pushTick(t);
     });
   }
-
-  private ordersPending = new Map<string, Order>();
 
   private pushTick(t: PriceTick): void {
     this.ticks.set(t.symbol, t);
@@ -1091,7 +1097,7 @@ export class LiveExchange implements ExchangeAdapter {
 }
 ```
 
-> Not: `data.mids` (allMids) tipi `Record<string, string>` değilse `Object.entries` kullanmadan önce plan uygulayıcısı SDK tipini kontrol edip gerekirse cast etsin (SDK `mids` alanına sahiptir). `exchange.info.userState` SDK InfoClient üzerinden erişilir; `ExchangeClient.info` alanı varsa kullan, yoksa `new InfoClient(...)` oluşturup `userState` çağır.
+> Not: Yukarıdaki kod, kurulu SDK **0.33.3**'ün doğrulanmış tip şemalarına göre düzenlenmiştir: `InfoClient({ transport })` + `clearinghouseState` (kalıcı `userState` yok), `l2Book` olayı `levels: [bids, asks]` tuple'ı (`L2BookLevel = { px, sz, n }`), `filled.totalSz`/`avgPx`, `cancel({ cancels: [{ a, o }] })`. Implementer kurulu tiplere karşı typecheck edip gerekirse bu şemalara uygun küçük düzeltmeler yapsın.
 
 - [ ] **Step 6: index.ts'te dışa aktar**
 
