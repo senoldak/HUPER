@@ -124,7 +124,9 @@ export class PaperExchange implements ExchangeAdapter {
   private fillPriceFor(n: NewOrder, type: OrderType): number | null {
     const t = this.ticks.get(n.symbol);
     if (!t) return null;
-    if (type === OrderType.Market || n.price === null) return t.ask;
+    if (type === OrderType.Market || n.price === null) {
+      return n.side === Side.Buy ? t.ask : t.bid;
+    }
     return n.side === Side.Buy ? (t.ask <= n.price ? n.price : null)
                                : (t.bid >= n.price ? n.price : null);
   }

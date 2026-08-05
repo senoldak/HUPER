@@ -40,10 +40,10 @@ describe("PaperExchange", () => {
     ex.pushTick({ symbol: "BTC", bid: 100, ask: 101, mid: 100.5, timestamp: 1 });
     await ex.placeOrder({ symbol: "BTC", side: Side.Buy, price: null, size: 1 }); // cash 899
     ex.pushTick({ symbol: "BTC", bid: 110, ask: 112, mid: 111, timestamp: 2 });
-    await ex.placeOrder({ symbol: "BTC", side: Side.Sell, price: null, size: 1 }); // +112
+    await ex.placeOrder({ symbol: "BTC", side: Side.Sell, price: null, size: 1 }); // +110 (bid)
 
     const bal = (await ex.balances())[0];
-    expect(bal.available).toBeCloseTo(899 + 112, 6);
+    expect(bal.available).toBeCloseTo(899 + 110, 6);
     expect((await ex.openPositions())).toHaveLength(0);
   });
 });

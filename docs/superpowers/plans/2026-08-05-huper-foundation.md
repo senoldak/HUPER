@@ -546,10 +546,10 @@ describe("PaperExchange", () => {
     ex.pushTick({ symbol: "BTC", bid: 100, ask: 101, mid: 100.5, timestamp: 1 });
     await ex.placeOrder({ symbol: "BTC", side: Side.Buy, price: null, size: 1 }); // cash 899
     ex.pushTick({ symbol: "BTC", bid: 110, ask: 112, mid: 111, timestamp: 2 });
-    await ex.placeOrder({ symbol: "BTC", side: Side.Sell, price: null, size: 1 }); // +112
+    await ex.placeOrder({ symbol: "BTC", side: Side.Sell, price: null, size: 1 }); // +110 (market sell fills at bid)
 
     const bal = (await ex.balances())[0];
-    expect(bal.available).toBeCloseTo(899 + 112, 6);
+    expect(bal.available).toBeCloseTo(899 + 110, 6);
     expect((await ex.openPositions())).toHaveLength(0);
   });
 });
@@ -690,8 +690,9 @@ export class PaperExchange implements ExchangeAdapter {
   private fillPriceFor(n: NewOrder, type: OrderType): number | null {
     const t = this.ticks.get(n.symbol);
     if (!t) return null;
-    if (type === OrderType.Market) return n.side === Side.Buy ? t.ask : t.bid;
-    if (n.price === null) return null;
+    if (type === OrderType.Market || n.price === null) {
+      return n.side === Side.Buy ? t.ask : t.bid;
+    }
     return n.side === Side.Buy ? (t.ask <= n.price ? n.price : null)
                                : (t.bid >= n.price ? n.price : null);
   }
