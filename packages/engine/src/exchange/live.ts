@@ -109,14 +109,34 @@ export class LiveExchange implements ExchangeAdapter {
   }
 
   async placeOrder(n: NewOrder): Promise<Order> {
+    const refPrice = this.ticks.get(n.symbol)?.mid;
+    if (n.type === OrderType.Market) {
+      if (refPrice == null) throw new Error("live market order requires a cached tick price");
+      const order = {
+        a: 0, // NOTE: asset index 0 = BTC placeholder; Phase 2 maps symbol→index via exchange meta
+        b: n.side === Side.Buy, p: refPrice.toFixed(6),
+        s: String(n.size), r: !!n.reduceOnly, t: { limit: { tif: "Ioc" as const } },
+      };
+      return this.sendAndMap(n, order);
+    }
     const order = {
-      a: 0, // NOTE: asset index 0 = BTC placeholder; Phase 2 maps symbol→index via exchange meta
-      b: n.side === Side.Buy,
-      p: n.type === OrderType.Market ? "" : (n.price ?? 0).toFixed(2),
-      s: String(n.size),
-      r: !!n.reduceOnly,
-      t: { limit: { tif: "Gtc" as const } },
+      a: 0, b: n.side === Side.Buy, p: (n.price ?? refPrice ?? 0).toFixed(6),
+      s: String(n.size), r: !!n.reduceOnly, t: { limit: { tif: "Gtc" as const } },
     };
+    return this.sendAndMap(n, order);
+  }
+
+  private async sendAndMap(
+    n: NewOrder,
+    order: {
+      a: number;
+      b: boolean;
+      p: string;
+      s: string;
+      r: boolean;
+      t: { limit: { tif: "Gtc" | "Ioc" } };
+    },
+  ): Promise<Order> {
     const res = await this.exchange.order({ orders: [order], grouping: "na" });
     const status = res.response.data.statuses?.[0] as
       | { resting: { oid: number } }
