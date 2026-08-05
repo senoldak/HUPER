@@ -9,8 +9,9 @@ Tek kullanıcılı Hyperliquid perp trading bot platformu. `paper` (simülasyon)
     npm run typecheck
     npm test
 
-Canlı mod: `.env` içine `HUPER_MODE=live` ve `HUPER_HYPERLIQUID_PRIVATE_KEY=0x...` koy.
+Canlı mod: repo kökündeki `.env` dosyasına `HUPER_MODE=live` ve `HUPER_HYPERLIQUID_PRIVATE_KEY=0x...` koy (engine başlarken `.env` otomatik okunur; `HUPER_MODE` boşsa varsayılan `paper`).
 
 ## Docker (VPS)
 
+    cp .env.example .env
     docker compose up --build engine

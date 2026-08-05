@@ -17,4 +17,4 @@ ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages ./packages
 EXPOSE 3001
-CMD ["npx", "tsx", "packages/engine/src/index.ts"]
+CMD ["npx", "tsx", "packages/engine/src/main.ts"]

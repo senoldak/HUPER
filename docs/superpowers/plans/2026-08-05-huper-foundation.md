@@ -1222,12 +1222,26 @@ export function buildApp(opts: { exchange: ExchangeAdapter }): FastifyInstance {
 
 - [ ] **Step 4: index.ts bootstrap**
 
+Final review düzeltmesi: `index.ts` paketin public API'si olur (adaptörleri/`buildApp`'i re-export eder), bootstrap ayrı `main.ts`'e taşınır. `main.ts`, repo kökündeki `.env`'i `dotenv` ile yükler.
+
 `packages/engine/src/index.ts`:
 ```ts
+export { PaperExchange } from "./exchange/paper.js";
+export { LiveExchange } from "./exchange/live.js";
+export * from "./exchange/hyperliquid-mapping.js";
+export { buildApp } from "./server.js";
+```
+
+`packages/engine/src/main.ts`:
+```ts
+import dotenv from "dotenv";
+import { fileURLToPath } from "node:url";
 import { loadConfig, createLogger } from "@huper/core";
 import { PaperExchange } from "./exchange/paper.js";
 import { LiveExchange } from "./exchange/live.js";
 import { buildApp } from "./server.js";
+
+dotenv.config({ path: fileURLToPath(new URL("../../../.env", import.meta.url)) });
 
 async function main() {
   const cfg = loadConfig();
@@ -1319,7 +1333,7 @@ ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages ./packages
 EXPOSE 3001
-CMD ["npx", "tsx", "packages/engine/src/index.ts"]
+CMD ["npx", "tsx", "packages/engine/src/main.ts"]
 ```
 
 - [ ] **Step 2: docker-compose.yml yaz**
@@ -1327,13 +1341,17 @@ CMD ["npx", "tsx", "packages/engine/src/index.ts"]
 ```yaml
 services:
   engine:
-    build: .
+    build:
+      context: .
+      dockerfile: packages/engine/Dockerfile
     env_file: .env
     ports:
       - "3001:3001"
     environment:
       HUPER_MODE: ${HUPER_MODE:-paper}
 ```
+
+NOT: `build: .` tek başına kök `./Dockerfile`'ı arardı; Dockerfile `packages/engine/` altında olduğundan `dockerfile` yolu açıkça verilir (final review bulgusu).
 
 - [ ] **Step 3: .dockerignore yaz**
 
@@ -1362,6 +1380,7 @@ Canlı mod: `.env` içine `HUPER_MODE=live` ve `HUPER_HYPERLIQUID_PRIVATE_KEY=0x
 
 ## Docker (VPS)
 
+    cp .env.example .env
     docker compose up --build engine
 ```
 
