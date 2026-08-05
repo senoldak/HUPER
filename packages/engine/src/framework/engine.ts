@@ -77,13 +77,16 @@ export class Engine {
     if (this.runners.has(id)) throw new Error("bot already running");
     const runner = new BotRunner(this, def, JSON.parse(row.params), row.state, row.id, row.name, row.symbol);
     this.orderIds.set(id, new Set());
-    this.store.createBotRun({ id: randomUUID(), bot_id: id, mode: this.exchange.mode, started_at: Date.now(), stopped_at: null, stop_reason: null });
+    const runId = randomUUID();
+    this.store.createBotRun({ id: runId, bot_id: id, mode: this.exchange.mode, started_at: Date.now(), stopped_at: null, stop_reason: null });
     this.runners.set(id, runner);
     try {
       await runner.start();
       this.store.updateBot(id, { status: "running" });
     } catch (e) {
       this.runners.delete(id);
+      this.orderIds.delete(id);
+      this.store.finishRun(runId, "start_failed");
       this.store.updateBot(id, { status: "error" });
       throw e;
     }

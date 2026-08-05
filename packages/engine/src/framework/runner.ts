@@ -57,6 +57,7 @@ export class BotRunner {
   async onOrderFilled(order: Order): Promise<void> {
     if (!this.active) return;
     await this.strategy.onOrderFilled?.(order, this.ctx);
+    for (const cb of this.fillCbs) cb(order);
     this.engine.saveBotState(this.botId, this.state);
   }
 
