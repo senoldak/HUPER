@@ -78,3 +78,56 @@ export interface ExchangeAdapter {
   onTick(cb: (tick: PriceTick) => void): () => void;
   onFill(cb: (order: Order) => void): () => void;
 }
+
+export const BotStatus = { Running: "running", Stopped: "stopped", Error: "error" } as const;
+export type BotStatus = (typeof BotStatus)[keyof typeof BotStatus];
+
+export interface RiskConfig {
+  globalMaxPositionPct: number;
+  perBotMaxPositionPct: number;
+  maxOrderNotionalPct: number;
+  maxPriceDriftPct: number;
+  minOrderSize: number;
+  maxOrderSize: number | null;
+  duplicateGuardMs: number;
+}
+
+export const DEFAULT_RISK: RiskConfig = {
+  globalMaxPositionPct: 0.5,
+  perBotMaxPositionPct: 0.2,
+  maxOrderNotionalPct: 0.05,
+  maxPriceDriftPct: 0.05,
+  minOrderSize: 0.001,
+  maxOrderSize: null,
+  duplicateGuardMs: 2000,
+};
+
+export interface RecentOrder {
+  id: string;
+  botId: string;
+  symbol: string;
+  side: Side;
+  price: number | null;
+  size: number;
+  createdAt: number;
+}
+
+export interface OrderAttempt {
+  botId: string;
+  symbol: string;
+  side: Side;
+  price: number | null;
+  size: number;
+  kind: "limit" | "market";
+  reduceOnly?: boolean;
+}
+
+export interface RiskSnapshot {
+  botId: string;
+  symbol: string;
+  balance: number;
+  lastPrice: number | null;
+  botPositionNotional: number;
+  globalPositionNotional: number;
+  recentOrders: RecentOrder[];
+}
