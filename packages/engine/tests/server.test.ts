@@ -1,11 +1,25 @@
-import { describe, it, expect, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import type { FastifyInstance } from "fastify";
 import { buildApp } from "../src/server.js";
 import { PaperExchange } from "../src/exchange/paper.js";
+import { openStore } from "../src/store/db.js";
+import { Store } from "../src/store/store.js";
+import { RiskManager } from "../src/risk/risk.js";
+import { DEFAULT_RISK } from "@huper/core";
+import { Engine } from "../src/framework/engine.js";
+import { buildRegistry } from "../src/strategies/index.js";
 
 describe("server", () => {
-  const ex = new PaperExchange({ initialBalance: 1000 });
-  ex.pushTick({ symbol: "BTC", bid: 100, ask: 101, mid: 100.5, timestamp: 1 });
-  const app = buildApp({ exchange: ex });
+  const exchange = new PaperExchange({ initialBalance: 1000 });
+  const store = new Store(openStore(":memory:"));
+  const engine = new Engine({ exchange, store, risk: new RiskManager(DEFAULT_RISK), registry: buildRegistry(), log: { info: () => {}, error: () => {}, warn: () => {} } });
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    await engine.start();
+    exchange.pushTick({ symbol: "BTC", bid: 100, ask: 101, mid: 100.5, timestamp: 1 });
+    app = buildApp({ exchange, engine });
+  });
 
   afterAll(async () => { await app.close(); });
 
@@ -29,5 +43,26 @@ describe("server", () => {
     const res = await app.inject({ method: "GET", url: "/positions" });
     expect(res.statusCode).toBe(200);
     expect(Array.isArray(res.json())).toBe(true);
+  });
+
+  it("creates and starts a bot via HTTP", async () => {
+    exchange.pushTick({ symbol: "BTC", bid: 100, ask: 100, mid: 100, timestamp: 0 });
+    const created = await app.inject({ method: "POST", url: "/bots", payload: { name: "HTTP Grid", strategy: "grid", symbol: "BTC", params: { levels: 2, spacingPct: 0.01, orderSize: 0.1 } } });
+    expect(created.statusCode).toBe(201);
+    const id = created.json().id as string;
+
+    const started = await app.inject({ method: "POST", url: `/bots/${id}/start` });
+    expect(started.statusCode).toBe(200);
+
+    const list = await app.inject({ method: "GET", url: "/bots" });
+    expect(list.json()).toHaveLength(1);
+
+    const stopped = await app.inject({ method: "POST", url: `/bots/${id}/stop` });
+    expect(stopped.json()).toEqual({ ok: true });
+  });
+
+  it("rejects bad bot params", async () => {
+    const res = await app.inject({ method: "POST", url: "/bots", payload: { name: "Bad", strategy: "grid", symbol: "BTC", params: { levels: -1 } } });
+    expect(res.statusCode).toBe(400);
   });
 });
