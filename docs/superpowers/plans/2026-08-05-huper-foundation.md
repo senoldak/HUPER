@@ -1295,13 +1295,14 @@ git commit -m "feat(engine): bootstrap server with HTTP bridge (paper/live)"
 
 **Interfaces:**
 - Produces: `docker compose build engine` Docker kurulu ortamda geçerli imaj üretir; `engine` servisi `HUPER_MODE` env'ine göre paper/live başlar. Docker bu makinede kurulu olmadığından build zorunlu doğrulama değildir; lokal doğrulama Task 6'dadır.
+- NOT: `@huper/core` paket exports'u `./src/index.ts` (TS kaynağı) olduğundan, derlenmiş `dist/index.js`'i plain `node` ile çalıştırmak `ERR_UNKNOWN_FILE_EXTENSION` verir. CMD, dev ile aynı çözümleme modunu kullanan `npx tsx packages/engine/src/index.ts` ile başlatılır (tsx, root devDependency; deps aşamasında `npm install --workspaces` onu kurar). Build aşaması `dist` üretir ama giriş noktası TS kaynağıdır — bu, Phase 2-5 dev akışını ve Next.js (Phase 3) import'unu bozmadan prod imajının da çalışmasını garanti eder.
 
 - [ ] **Step 1: engine Dockerfile yaz**
 
 ```dockerfile
 FROM node:22-alpine AS deps
 WORKDIR /app
-COPY package.json tsconfig.base.json ./
+COPY package.json package-lock.json* tsconfig.base.json ./
 COPY packages/core/package.json packages/core/
 COPY packages/engine/package.json packages/engine/
 RUN npm install --workspaces
@@ -1318,7 +1319,7 @@ ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages ./packages
 EXPOSE 3001
-CMD ["node", "packages/engine/dist/index.js"]
+CMD ["npx", "tsx", "packages/engine/src/index.ts"]
 ```
 
 - [ ] **Step 2: docker-compose.yml yaz**
