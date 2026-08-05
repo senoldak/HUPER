@@ -1,18 +1,16 @@
-# HUPER
+# HUPER — Hyperliquid Bot Platform
 
-Hyperliquid bot platform — monorepo.
+Tek kullanıcılı Hyperliquid perp trading bot platformu. `paper` (simülasyon) ve `live` (gerçek emir) modlarını destekler.
 
-## Workspaces
+## Geliştirme (lokal)
 
-- `packages/core` — shared types, config, and utilities (`@huper/core`)
-- `packages/engine` — bot engine / Hyperliquid exchange layer (`@huper/engine`)
+    npm install
+    npm run dev -w @huper/engine   # paper mod, http://localhost:3001
+    npm run typecheck
+    npm test
 
-## Scripts (root)
+Canlı mod: `.env` içine `HUPER_MODE=live` ve `HUPER_HYPERLIQUID_PRIVATE_KEY=0x...` koy.
 
-- `npm run typecheck` — type-check all workspaces
-- `npm test` — run all workspace tests
-- `npm run build` — build all workspaces
+## Docker (VPS)
 
-## Environment
-
-Copy `.env.example` to `.env` and fill in the values.
+    docker compose up --build engine
