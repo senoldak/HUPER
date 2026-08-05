@@ -51,7 +51,7 @@ Tek kullanıcılı, kişisel Hyperliquid perp trading bot platformu. Kullanıcı
 
 ## 4. Mimari
 
-**Monorepo (pnpm workspaces):**
+**Monorepo (npm workspaces):**
 
 ```
 HUPER/

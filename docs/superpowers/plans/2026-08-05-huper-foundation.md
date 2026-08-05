@@ -127,7 +127,7 @@ coverage/
   },
   "dependencies": {
     "@huper/core": "*",
-    "@nktkas/hyperliquid": "^1.20.4",
+    "@nktkas/hyperliquid": "^0.33.3",
     "viem": "^2.21.0",
     "fastify": "^5.2.0",
     "@fastify/cors": "^10.0.1"
@@ -136,14 +136,16 @@ coverage/
 }
 ```
 
-Her paket için `tsconfig.json`:
+Her paket için `tsconfig.json` (test dosyaları Vitest tarafından derlenir; `tsc` sadece `src`'i görür — böylece `rootDir: "src"` ile build/typecheck temiz kalır):
 ```json
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": { "rootDir": "src", "outDir": "dist" },
-  "include": ["src", "test"]
+  "include": ["src"]
 }
 ```
+
+> Not: Task 1 commit'inde bu tsconfig'ler `include: ["src", "test"]` ile yazılmıştı (plan revizyonu). Task 2 bunları `["src"]`'e çevirir — aksi halde `npm run build` TS6059 ile kırılır.
 
 Geçici entry dosyaları:
 `packages/core/src/index.ts` ve `packages/engine/src/index.ts`:
