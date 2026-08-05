@@ -1565,6 +1565,8 @@ export function buildApp(opts: { exchange: ExchangeAdapter; engine: Engine }): F
 ```ts
 import dotenv from "dotenv";
 import { fileURLToPath } from "node:url";
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import { loadConfig, createLogger, DEFAULT_RISK } from "@huper/core";
 import { PaperExchange } from "./exchange/paper.js";
 import { LiveExchange } from "./exchange/live.js";
@@ -1584,7 +1586,9 @@ async function main() {
   const cfg = loadConfig();
   const log = createLogger("engine");
 
-  const store = new Store(openStore(process.env.HUPER_DB_PATH ?? "data/huper.db"));
+  const dbPath = process.env.HUPER_DB_PATH ?? "data/huper.db";
+  if (dbPath !== ":memory:") mkdirSync(dirname(dbPath), { recursive: true }); // human decision: boot crash fix (better-sqlite3 needs existing dir)
+  const store = new Store(openStore(dbPath));
   const exchange: ExchangeAdapter = cfg.mode === "paper"
     ? new PaperExchange({ initialBalance: cfg.paperBalance })
     : new LiveExchange({ privateKey: cfg.privateKey!, rpcUrl: cfg.rpcUrl, wsUrl: cfg.wsUrl });
