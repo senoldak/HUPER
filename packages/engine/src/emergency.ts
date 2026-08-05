@@ -1,4 +1,4 @@
-import type { ExchangeAdapter, Position } from "@huper/core";
+import type { ExchangeAdapter } from "@huper/core";
 import { OrderType, Side } from "@huper/core";
 import type { Engine } from "./framework/engine.js";
 
@@ -16,7 +16,9 @@ export class EmergencyStop {
           type: OrderType.Market, price: null, size: p.size, reduceOnly: true,
         });
         closed++;
-      } catch { /* log and continue closing the rest */ }
+      } catch (err) {
+        this.engine.logHandle().error({ symbol: p.symbol, err: String(err) }, "emergency close failed");
+      }
     }
     return { stoppedBots, closedPositions: closed };
   }

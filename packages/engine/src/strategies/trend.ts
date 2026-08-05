@@ -55,12 +55,8 @@ export class TrendStrategy implements Strategy {
     }
   }
 
-  async onStop(ctx: StrategyCtx): Promise<void> {
-    const pos = (await ctx.getPositions())[0];
-    if (pos) {
-      const closeSide = pos.side === Side.Buy ? "sell" : "buy";
-      await ctx.createOrder({ symbol: ctx.symbol, side: closeSide, type: OrderType.Market, price: null, size: pos.size, reduceOnly: true });
-    }
+  async onStop(_ctx: StrategyCtx): Promise<void> {
+    // no-op: position flattening is owned solely by EmergencyStop
   }
 }
 
