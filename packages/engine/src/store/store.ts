@@ -92,6 +92,19 @@ export class Store {
     return rows.reverse(); // oldest-first for charting
   }
 
+  getWatchlist(): string[] {
+    const row = this.db.prepare(`SELECT symbols FROM watchlist WHERE id = 'default'`).get() as { symbols: string } | undefined;
+    if (!row) return [];
+    return JSON.parse(row.symbols) as string[];
+  }
+
+  setWatchlist(symbols: string[]): void {
+    this.db.prepare(
+      `INSERT INTO watchlist (id, symbols, updated_at) VALUES ('default', ?, ?)
+       ON CONFLICT(id) DO UPDATE SET symbols = excluded.symbols, updated_at = excluded.updated_at`,
+    ).run(JSON.stringify(symbols), Date.now());
+  }
+
   deleteBot(id: string): void {
     this.db.prepare(`DELETE FROM runs WHERE bot_id = ?`).run(id);
     this.db.prepare(`DELETE FROM orders WHERE bot_id = ?`).run(id);

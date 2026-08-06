@@ -29,6 +29,11 @@ export function openStore(path: string): Database.Database {
     CREATE TABLE IF NOT EXISTS equity (
       id TEXT PRIMARY KEY, bot_id TEXT, ts INTEGER NOT NULL, value REAL NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS watchlist (
+      id TEXT PRIMARY KEY,
+      symbols TEXT NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
     CREATE INDEX IF NOT EXISTS idx_runs_bot_id ON runs(bot_id);
     CREATE INDEX IF NOT EXISTS idx_orders_bot_id ON orders(bot_id);
     CREATE INDEX IF NOT EXISTS idx_positions_bot_id ON positions(bot_id);

@@ -67,4 +67,15 @@ describe("Store", () => {
     const botRows = store.listEquity("b9");
     expect(botRows.map((r) => r.id)).toEqual(["e3"]);
   });
+
+  it("getWatchlist returns empty when none saved", () => {
+    expect(store.getWatchlist()).toEqual([]);
+  });
+
+  it("setWatchlist persists and getWatchlist reads back", () => {
+    store.setWatchlist(["BTC", "ETH", "SOL"]);
+    expect(store.getWatchlist()).toEqual(["BTC", "ETH", "SOL"]);
+    store.setWatchlist(["XRP"]);
+    expect(store.getWatchlist()).toEqual(["XRP"]);
+  });
 });
