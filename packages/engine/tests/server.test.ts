@@ -65,4 +65,26 @@ describe("server", () => {
     const res = await app.inject({ method: "POST", url: "/bots", payload: { name: "Bad", strategy: "grid", symbol: "BTC", params: { levels: -1 } } });
     expect(res.statusCode).toBe(400);
   });
+
+  it("serves the panel index at /", async () => {
+    const res = await app.inject({ method: "GET", url: "/" });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-type"]).toMatch(/text\/html/);
+    expect(res.body).toContain("HUPER");
+  });
+
+  it("serves static assets", async () => {
+    const res = await app.inject({ method: "GET", url: "/app.js" });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("returns global equity series via /equity", async () => {
+    await engine.recordEquity();
+    const res = await app.inject({ method: "GET", url: "/equity?limit=5" });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { id: string; bot_id: string | null; ts: number; value: number }[];
+    expect(Array.isArray(body)).toBe(true);
+    expect(body.length).toBeGreaterThanOrEqual(1);
+    expect(body.every((r) => r.bot_id === null)).toBe(true);
+  });
 });

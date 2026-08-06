@@ -1,5 +1,7 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import fastifyStatic from "@fastify/static";
+import { fileURLToPath } from "node:url";
 import type { FastifyInstance } from "fastify";
 import type { ExchangeAdapter, NewOrder } from "@huper/core";
 import type { Engine } from "./framework/engine.js";
@@ -62,6 +64,17 @@ export function buildApp(opts: { exchange: ExchangeAdapter; engine: Engine }): F
 
   app.post("/emergency-stop", async () => {
     return new EmergencyStop(opts.engine, opts.exchange).run();
+  });
+
+  app.get<{ Querystring: { limit?: string } }>("/equity", async (req) => {
+    const raw = req.query.limit != null ? Number(req.query.limit) : 200;
+    const limit = Number.isFinite(raw) ? Math.max(1, Math.min(1000, raw)) : 200;
+    return opts.engine.listEquity(limit);
+  });
+
+  void app.register(fastifyStatic, {
+    root: fileURLToPath(new URL("../public", import.meta.url)),
+    prefix: "/",
   });
 
   return app;
