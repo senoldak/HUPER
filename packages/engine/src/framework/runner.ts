@@ -8,6 +8,7 @@ export class BotRunner {
   readonly symbol: string;
   readonly cadenceMs: number;
   lastEval = 0;
+  private busy = false;
   private ctx: StrategyCtx;
   private state: BotState;
   private fillCbs = new Set<(o: Order) => void>();
@@ -31,7 +32,7 @@ export class BotRunner {
       params,
       state: this.state,
       getTick: () => engine.latestTick(symbol),
-      getPositions: () => engine.positionsFor(symbol),
+      getPositions: () => engine.positionsFor(this.botId, symbol),
       getBalance: () => engine.balance(),
       createOrder: (o: NewOrder) => engine.executeOrder(botId, symbol, o),
       cancelOrder: (orderId: string) => engine.cancelOrder(botId, orderId),
@@ -46,10 +47,12 @@ export class BotRunner {
   }
 
   async evaluate(tick: PriceTick): Promise<void> {
-    if (!this.active) return;
+    if (!this.active || this.busy) return;
+    this.busy = true;
     try {
       await this.strategy.onTick(tick, this.ctx);
     } finally {
+      this.busy = false;
       this.engine.saveBotState(this.botId, this.state);
     }
   }

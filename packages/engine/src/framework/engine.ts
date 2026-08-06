@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { OrderType, type ExchangeAdapter, type NewOrder, type Order, type PriceTick, type Position, type RecentOrder } from "@huper/core";
+import { OrderType, Side, type ExchangeAdapter, type NewOrder, type Order, type PriceTick, type Position, type RecentOrder } from "@huper/core";
 import type { Store } from "../store/store.js";
 import type { PersistedOrder, PersistedPosition, RunRow, BotRow } from "../store/types.js";
 import type { RiskManager } from "../risk/risk.js";
@@ -50,9 +50,10 @@ export class Engine {
     await this.stopAll("shutdown");
   }
 
-  async positionsFor(symbol: string): Promise<Position[]> {
-    const all = await this.exchange.openPositions();
-    return all.filter((p) => p.symbol === symbol);
+  async positionsFor(botId: string, symbol: string): Promise<Position[]> {
+    return this.store.listPositions(botId)
+      .filter((p) => p.symbol === symbol && p.closed_at === null)
+      .map((p) => ({ symbol: p.symbol, side: p.side as Side, size: p.size, avgEntry: p.avg_entry, markPrice: p.mark_price ?? undefined }));
   }
 
   async createBot(input: { name: string; strategy: string; symbol: string; params: Record<string, unknown> }): Promise<BotSummary> {

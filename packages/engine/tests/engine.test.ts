@@ -26,6 +26,23 @@ class FakeStrategy implements Strategy {
   async onStop(ctx: StrategyCtx) { this.calls.stop++; }
 }
 
+class SlowStrategy implements Strategy {
+  readonly name = "slow";
+  readonly paramsSchema = z.object({});
+  readonly cadenceMs = 0;
+  concurrent = 0;
+  maxConcurrent = 0;
+  onStart() { return Promise.resolve(); }
+  async onTick() {
+    this.concurrent++;
+    this.maxConcurrent = Math.max(this.maxConcurrent, this.concurrent);
+    await new Promise((r) => setTimeout(r, 80));
+    this.concurrent--;
+  }
+  onOrderFilled() { return Promise.resolve(); }
+  onStop() { return Promise.resolve(); }
+}
+
 class RouteFillStrategy implements Strategy {
   readonly name = "route-fill";
   readonly paramsSchema = z.object({});
@@ -59,8 +76,9 @@ describe("Engine", () => {
     expect(store.getBot(bot.id)?.status).toBe("running");
 
     exchange.pushTick({ symbol: "BTC", bid: 100, ask: 100, mid: 100, timestamp: 1 });
+    await new Promise((r) => setTimeout(r, 20));
     exchange.pushTick({ symbol: "BTC", bid: 100, ask: 100, mid: 101, timestamp: 2 });
-    await new Promise((r) => setTimeout(r, 10));
+    await new Promise((r) => setTimeout(r, 20));
 
     expect(strategy.calls.tick).toBeGreaterThanOrEqual(2);
     expect(strategy.calls.start).toBe(1);
@@ -174,5 +192,34 @@ describe("Engine", () => {
     expect(store.listPositions(inactive.id)).toEqual([]);
 
     await engine.stopBot(active.id, "stopped");
+  });
+
+  it("scopes positionsFor to the requesting bot on a shared symbol", async () => {
+    const botA = await engine.createBot({ name: "ScopedA", strategy: "fake", symbol: "XRP", params: { threshold: 99 } });
+    const botB = await engine.createBot({ name: "ScopedB", strategy: "fake", symbol: "XRP", params: { threshold: 99 } });
+    await engine.startBot(botA.id);
+
+    exchange.pushTick({ symbol: "XRP", bid: 100, ask: 100, mid: 101, timestamp: 13 });
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(await engine.positionsFor(botA.id, "XRP")).toHaveLength(1);
+    expect(await engine.positionsFor(botB.id, "XRP")).toEqual([]);
+
+    await engine.stopBot(botA.id, "stopped");
+  });
+
+  it("skips overlapping evaluate calls via the busy mutex", async () => {
+    const slow = new SlowStrategy();
+    registry.register(slow);
+    const bot = await engine.createBot({ name: "Slow", strategy: "slow", symbol: "ADA", params: {} });
+    await engine.startBot(bot.id);
+
+    exchange.pushTick({ symbol: "ADA", bid: 100, ask: 100, mid: 100, timestamp: 14 });
+    exchange.pushTick({ symbol: "ADA", bid: 100, ask: 100, mid: 100, timestamp: 15 });
+    await new Promise((r) => setTimeout(r, 250));
+
+    expect(slow.maxConcurrent).toBeLessThanOrEqual(1);
+
+    await engine.stopBot(bot.id, "stopped");
   });
 });
