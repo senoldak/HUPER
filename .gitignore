@@ -5,3 +5,6 @@ coverage/
 .env.local
 *.tsbuildinfo
 .DS_Store
+
+# runtime data
+packages/engine/data/
