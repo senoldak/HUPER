@@ -1,0 +1,30 @@
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, sans-serif; background: #121417; color: #e6e6e6; }
+header { display: flex; align-items: center; gap: 12px; padding: 12px 20px; background: #1b1e24; border-bottom: 1px solid #2a2e35; }
+header h1 { margin: 0; font-size: 20px; }
+.badge { font-size: 12px; padding: 2px 8px; border-radius: 10px; background: #2a2e35; }
+.tabs { display: flex; gap: 8px; padding: 12px 20px; }
+.tabs button { background: #1b1e24; color: #e6e6e6; border: 1px solid #2a2e35; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+.tabs button.active { background: #2ecc71; color: #0a0c0e; border-color: #2ecc71; }
+.view { padding: 0 20px 40px; }
+.hidden { display: none !important; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.card { background: #1b1e24; border: 1px solid #2a2e35; border-radius: 8px; padding: 16px; }
+.card.wide { margin-bottom: 12px; }
+.card h3 { margin: 0 0 12px; font-size: 14px; color: #9aa0a6; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #262a30; }
+th { color: #9aa0a6; font-weight: 500; }
+.status-running { color: #2ecc71; }
+.status-stopped { color: #95a5a6; }
+.status-error { color: #e74c3c; }
+button { cursor: pointer; background: #2a2e35; color: #e6e6e6; border: 1px solid #3a3f47; border-radius: 6px; padding: 6px 12px; }
+button:hover { background: #343943; }
+button.danger:hover { background: #e74c3c; }
+input, select { background: #121417; color: #e6e6e6; border: 1px solid #2a2e35; border-radius: 6px; padding: 6px 8px; margin-right: 8px; }
+#params label { margin-right: 12px; font-size: 12px; }
+#params input { width: 80px; }
+.error { color: #e74c3c; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #e74c3c; color: #fff; padding: 10px 18px; border-radius: 6px; z-index: 10; }
+canvas { width: 100%; background: #121417; border: 1px solid #2a2e35; border-radius: 6px; }

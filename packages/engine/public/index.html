@@ -2,12 +2,80 @@
 <html lang="tr">
 <head>
   <meta charset="utf-8">
-  <title>HUPER</title>
+  <title>HUPER — Bot Engine</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <h1>HUPER</h1>
-  <div id="app"></div>
+  <header>
+    <h1>HUPER</h1>
+    <span id="mode" class="badge">…</span>
+  </header>
+
+  <nav class="tabs">
+    <button data-tab="overview" class="active">Genel Bakış</button>
+    <button data-tab="bots">Botlar</button>
+  </nav>
+
+  <section id="overview" class="view">
+    <div class="cards">
+      <div class="card"><h3>Bakiye</h3><p id="balance">—</p></div>
+      <div class="card"><h3>Son Equity</h3><p id="equity-last">—</p></div>
+    </div>
+    <div class="card wide">
+      <h3>Equity</h3>
+      <canvas id="equity-chart" height="200"></canvas>
+    </div>
+    <div class="card wide">
+      <h3>Pozisyonlar</h3>
+      <table id="positions">
+        <thead><tr><th>Sembol</th><th>Taraf</th><th>Boyut</th><th>Ort. Giriş</th><th>Fiyat</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="card wide">
+      <h3>Fiyatlar</h3>
+      <table id="prices">
+        <thead><tr><th>Sembol</th><th>Bid</th><th>Ask</th><th>Mid</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="bots" class="view hidden">
+    <div class="card wide">
+      <h3>Yeni Bot</h3>
+      <form id="new-bot">
+        <input name="name" placeholder="İsim" required>
+        <input name="symbol" placeholder="Sembol (BTC)" required>
+        <select name="strategy" id="strategy-select">
+          <option value="grid">grid</option>
+          <option value="dca">dca</option>
+          <option value="trend">trend</option>
+        </select>
+        <div id="params"></div>
+        <button type="submit">Oluştur</button>
+      </form>
+      <p id="form-error" class="error hidden"></p>
+    </div>
+    <div class="card wide">
+      <h3>Botlar</h3>
+      <table id="bots">
+        <thead><tr><th>Ad</th><th>Strateji</th><th>Sembol</th><th>Durum</th><th>İşlemler</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="detail" class="view hidden">
+    <button id="back">← Geri</button>
+    <h2 id="detail-name">—</h2>
+    <div class="card wide"><h3>Emirler</h3><table id="detail-orders"></table></div>
+    <div class="card wide"><h3>Pozisyonlar</h3><table id="detail-positions"></table></div>
+    <div class="card wide"><h3>Çalıştırmalar</h3><table id="detail-runs"></table></div>
+  </section>
+
+  <div id="toast" class="toast hidden"></div>
   <script src="/app.js"></script>
 </body>
 </html>

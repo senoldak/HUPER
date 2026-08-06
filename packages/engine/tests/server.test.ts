@@ -71,6 +71,8 @@ describe("server", () => {
     expect(res.statusCode).toBe(200);
     expect(res.headers["content-type"]).toMatch(/text\/html/);
     expect(res.body).toContain("HUPER");
+    expect(res.body).toContain("id=\"overview\"");
+    expect(res.body).toContain("id=\"bots\"");
   });
 
   it("serves static assets", async () => {
