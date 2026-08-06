@@ -255,8 +255,9 @@ async function addSymbol() {
   poll();
 }
 async function removeSymbol(sym) {
+  const prev = watchlist;
   watchlist = watchlist.filter((s) => s !== sym);
-  try { await saveWatchlist(); } catch (e) { toast(e.message); return; }
+  try { await saveWatchlist(); } catch (e) { watchlist = prev; toast(e.message); return; }
   toast(`${sym} kaldırıldı`);
   poll();
 }
