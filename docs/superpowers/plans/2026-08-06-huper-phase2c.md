@@ -37,7 +37,7 @@
 - `export interface EquityRow { id: string; bot_id: string | null; ts: number; value: number }` (types.ts)
 - `Store.listEquity(botId?: string, limit?: number): EquityRow[]` — `botId === undefined` returns only `bot_id IS NULL` rows (global); a string returns only that bot's rows. Rows returned newest-first is NOT required — return them OLDEST-first (ascending `ts`) because the chart plots left-to-right. `limit` caps the count (most recent `limit` kept).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `packages/engine/tests/store.test.ts` (inside the existing `describe("Store", ...)`):
 
@@ -63,12 +63,12 @@ it("listEquity filters global rows and applies limit oldest-first", () => {
 
 Use the content-based assertions above (not exact whole-list equality): the file's shared in-memory DB accumulates rows from earlier `it` blocks, so whole-list equality would be brittle.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm test -w @huper/engine -- store.test.ts`
 Expected: FAIL — `listEquity` does not exist (TypeError / property undefined).
 
-- [ ] **Step 3: Implement `EquityRow` + `listEquity`**
+- [x] **Step 3: Implement `EquityRow` + `listEquity`**
 
 `packages/engine/src/store/types.ts` — append:
 
@@ -94,12 +94,12 @@ listEquity(botId?: string, limit?: number): EquityRow[] {
 
 Import `EquityRow` into `store.ts` (extend the existing `import type { BotRow, RunRow, PersistedOrder, PersistedPosition } from "./types.js"` line).
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -w @huper/engine`
 Expected: all pass, including the new `listEquity` tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/engine/src/store/types.ts packages/engine/src/store/store.ts packages/engine/tests/store.test.ts
@@ -120,7 +120,7 @@ git commit -m "feat(store): listEquity reader with global filter and limit"
   - `Engine.recordEquity(): Promise<void>` — reads `exchange.balances()`, appends a global equity row `{ botId: null, value: balances[0].total }`.
   - `Engine.listEquity(limit?: number): EquityRow[]` — delegates to `store.listEquity(undefined, limit)`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `packages/engine/tests/engine.test.ts` a fresh, isolated test (do NOT reuse the module-scope shared `engine`/`store`):
 
@@ -144,12 +144,12 @@ it("records global equity snapshots and exposes them via listEquity", async () =
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm test -w @huper/engine -- engine.test.ts`
 Expected: FAIL — `recordEquity` does not exist.
 
-- [ ] **Step 3: Implement in `engine.ts`**
+- [x] **Step 3: Implement in `engine.ts`**
 
 Add `EquityRow` to the existing `import type { ... } from "../store/types.js"` line. Add two methods near the other public methods (e.g. after `balance()` / `orderIdsFor`):
 
@@ -168,12 +168,12 @@ listEquity(limit?: number): EquityRow[] {
 
 `randomUUID` is already imported from `node:crypto` in engine.ts.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -w @huper/engine`
 Expected: all pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/engine/src/framework/engine.ts packages/engine/tests/engine.test.ts
@@ -191,7 +191,7 @@ git commit -m "feat(engine): recordEquity snapshots and listEquity delegation"
 - Consumes: `Engine.recordEquity()` (Task 2).
 - Produces: a 5s `setInterval` in `main()` that records equity, and `clearInterval` on shutdown.
 
-- [ ] **Step 1: Add the interval and cleanup**
+- [x] **Step 1: Add the interval and cleanup**
 
 In `packages/engine/src/main.ts`:
 - After `await engine.start();` and before the feed block, add:
@@ -218,7 +218,7 @@ const stop = async () => {
 };
 ```
 
-- [ ] **Step 2: Verify typecheck + suite**
+- [x] **Step 2: Verify typecheck + suite**
 
 Run: `npm run typecheck`
 Expected: 0 errors.
@@ -226,7 +226,7 @@ Expected: 0 errors.
 Run: `npm test -w @huper/engine`
 Expected: all pass (no behavior change to tests).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add packages/engine/src/main.ts
@@ -249,7 +249,7 @@ git commit -m "feat(engine): periodic equity snapshot recording in main"
 - Consumes: `Engine.listEquity(limit?)` (Task 2).
 - Produces: `GET /equity?limit=N` → array of `EquityRow` (oldest-first); `GET /` → `public/index.html`; `GET /app.js`, `GET /style.css` served.
 
-- [ ] **Step 1: Install the dependency**
+- [x] **Step 1: Install the dependency**
 
 ```bash
 npm i @fastify/static -w @huper/engine
@@ -257,7 +257,7 @@ npm i @fastify/static -w @huper/engine
 
 Verify it lands in `packages/engine/package.json` `dependencies` (NOT devDependencies).
 
-- [ ] **Step 2: Create the placeholder static files**
+- [x] **Step 2: Create the placeholder static files**
 
 `packages/engine/public/index.html`:
 ```html
@@ -278,7 +278,7 @@ Verify it lands in `packages/engine/package.json` `dependencies` (NOT devDepende
 
 `packages/engine/public/app.js` and `packages/engine/public/style.css`: create as empty files (0 bytes is fine).
 
-- [ ] **Step 3: Write the failing server tests**
+- [x] **Step 3: Write the failing server tests**
 
 Append to `packages/engine/tests/server.test.ts` (inside the existing `describe("server", ...)` block):
 
@@ -306,12 +306,12 @@ it("returns global equity series via /equity", async () => {
 });
 ```
 
-- [ ] **Step 4: Run tests to verify they fail**
+- [x] **Step 4: Run tests to verify they fail**
 
 Run: `npm test -w @huper/engine -- server.test.ts`
 Expected: the three new tests fail (404s / no `/equity` route).
 
-- [ ] **Step 5: Implement in `server.ts`**
+- [x] **Step 5: Implement in `server.ts`**
 
 At the top add imports:
 
@@ -339,12 +339,12 @@ app.get<{ Querystring: { limit?: string } }>("/equity", async (req) => {
 });
 ```
 
-- [ ] **Step 6: Run tests to verify they pass**
+- [x] **Step 6: Run tests to verify they pass**
 
 Run: `npm test -w @huper/engine`
 Expected: all pass, including the three new server tests. Existing API routes (`/bots`, `/orders`, `/positions`, `/health`) still pass (no static shadowing).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/engine/src/server.ts packages/engine/package.json packages/engine/public
@@ -366,7 +366,7 @@ git commit -m "feat(server): serve static panel and add /equity endpoint"
 - BotSummary fields: `{ id, name, strategy, symbol, status, params, state, createdAt, updatedAt }`.
 - Produces: the full dashboard UI.
 
-- [ ] **Step 1: Write `index.html`**
+- [x] **Step 1: Write `index.html`**
 
 Single page, three tabs. Replace the Task 4 placeholder (keep `<title>HUPER</title>` and the `/style.css` / `/app.js` links):
 
@@ -454,7 +454,7 @@ Single page, three tabs. Replace the Task 4 placeholder (keep `<title>HUPER</tit
 </html>
 ```
 
-- [ ] **Step 2: Write `style.css`**
+- [x] **Step 2: Write `style.css`**
 
 Dark theme. Status colors: running → `#2ecc71`, stopped → `#95a5a6`, error → `#e74c3c`. Tabs, cards, tables, forms, toast, hidden class. Keep it simple (no external fonts):
 
@@ -491,7 +491,7 @@ input, select { background: #121417; color: #e6e6e6; border: 1px solid #2a2e35; 
 canvas { width: 100%; background: #121417; border: 1px solid #2a2e35; border-radius: 6px; }
 ```
 
-- [ ] **Step 3: Write `app.js`**
+- [x] **Step 3: Write `app.js`**
 
 Vanilla JS. Structure (all code, no placeholders):
 
@@ -658,7 +658,7 @@ poll();
 setInterval(poll, 2000);
 ```
 
-- [ ] **Step 4: Extend the server test for the real panel**
+- [x] **Step 4: Extend the server test for the real panel**
 
 In `packages/engine/tests/server.test.ts`, strengthen the `GET /` test to assert the tab structure exists:
 
@@ -673,7 +673,7 @@ it("serves the panel index at /", async () => {
 });
 ```
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run: `npm test -w @huper/engine`
 Expected: all pass.
@@ -681,7 +681,7 @@ Expected: all pass.
 Run: `npm run typecheck`
 Expected: 0 errors.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/engine/public packages/engine/tests/server.test.ts
@@ -692,7 +692,7 @@ git commit -m "feat(web): add HUPER dashboard panel"
 
 ### Finalization
 
-- [ ] **Full verification**
+- [x] **Full verification**
 
 ```bash
 npm run typecheck
@@ -700,7 +700,7 @@ npm test
 ```
 Expected: 0 typecheck errors; all core + engine tests pass.
 
-- [ ] **Manual smoke test**
+- [x] **Manual smoke test**
 
 1. Kill any stale engine on port 3001 (from the earlier manual run), then:
    ```bash
@@ -712,7 +712,7 @@ Expected: 0 typecheck errors; all core + engine tests pass.
 5. Stop the bot; stop/delete it. Confirm status transitions in the UI.
 6. Stop the engine (Ctrl+C) — confirm clean shutdown (`clearInterval`).
 
-- [ ] **Update SDD progress log** (`.superpowers/sdd/2026-08-06-huper-phase2c/progress.md`) mirroring the Phase 2b ledger format (per-task brief/review/fix records).
+- [x] **Update SDD progress log** (`.superpowers/sdd/2026-08-06-huper-phase2c/progress.md`) mirroring the Phase 2b ledger format (per-task brief/review/fix records).
 
 ## Task Order Rationale
 
