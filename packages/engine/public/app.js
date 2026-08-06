@@ -5,6 +5,7 @@ function escapeHtml(v) {
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
+
 const DEFAULT_WATCHLIST = ["BTC", "ETH", "SOL", "DOGE", "LINK", "AVAX", "XRP", "BNB"];
 const paramsDefs = {
   grid: { levels: "number", spacingPct: "number", orderSize: "number" },
@@ -15,12 +16,17 @@ const STATUS_CLASS = { running: "status-running", stopped: "status-stopped", err
 
 let detailId = null;
 
-function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.remove("hidden"); setTimeout(() => t.classList.add("hidden"), 3000); }
+function toast(msg) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.remove("hidden");
+  setTimeout(() => t.classList.add("hidden"), 3500);
+}
 
-// Tabs
-document.querySelectorAll(".tabs button").forEach((btn) => {
+// Navigation Tabs
+document.querySelectorAll(".nav-tabs .tab-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("active", b === btn));
+    document.querySelectorAll(".nav-tabs .tab-btn").forEach((b) => b.classList.toggle("active", b === btn));
     document.querySelectorAll(".view").forEach((v) => v.classList.add("hidden"));
     $(`#${btn.dataset.tab}`).classList.remove("hidden");
     detailId = null;
@@ -32,7 +38,7 @@ document.querySelectorAll(".tabs button").forEach((btn) => {
 function renderParams() {
   const strat = $("#strategy-select").value;
   $("#params").innerHTML = Object.keys(paramsDefs[strat])
-    .map((k) => `<label>${k}<input name="params.${k}" type="number" step="any"></label>`)
+    .map((k) => `<label>${k}<input name="params.${k}" type="number" step="any" placeholder="0"></label>`)
     .join("");
 }
 $("#strategy-select").addEventListener("change", renderParams);
@@ -51,9 +57,24 @@ $("#new-bot").addEventListener("submit", async (ev) => {
     const res = await fetch("/bots", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || res.statusText); }
     ev.target.reset();
-    toast("Bot oluşturuldu");
+    renderParams();
+    toast("✨ Bot başarıyla oluşturuldu");
     poll();
-  } catch (e) { toast(e.message); }
+  } catch (e) { toast(`⚠️ ${e.message}`); }
+});
+
+// Emergency Stop Button
+$("#btn-emergency").addEventListener("click", async () => {
+  if (!confirm("⚠️ PANİK DURDURMA: Tüm botlar durdurulacak, açık emirler iptal edilecek ve pozisyonlar kapatılacaktır. Emin misiniz?")) {
+    return;
+  }
+  try {
+    const res = await api("/emergency-stop", { method: "POST" });
+    toast(`🚨 Acil Durum Çalıştırıldı: Botlar=${res.stoppedBotsCount}, Emirler=${res.cancelledOrdersCount}`);
+    poll();
+  } catch (e) {
+    toast(`❌ Acil Durum Hatası: ${e.message}`);
+  }
 });
 
 async function api(path, opts) {
@@ -64,6 +85,7 @@ async function api(path, opts) {
 
 let watchlist = [];
 let watchlistLoaded = false;
+
 async function loadWatchlist() {
   const res = await api("/watchlist");
   watchlistLoaded = true;
@@ -71,56 +93,136 @@ async function loadWatchlist() {
   if (!res.persisted) await api("/watchlist", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ symbols: watchlist }) });
   return watchlist;
 }
+
 async function addSymbol() {
   const raw = $("#watch-input").value.trim().toUpperCase();
   if (!raw) return;
-  if (!/^[A-Z0-9.\-]{1,20}$/.test(raw)) { toast("Geçersiz sembol"); return; }
-  if (watchlist.includes(raw)) { toast(`${raw} zaten listede`); return; }
+  if (!/^[A-Z0-9.\-]{1,20}$/.test(raw)) { toast("Geçersiz sembol biçimi"); return; }
+  if (watchlist.includes(raw)) { toast(`${raw} zaten listenizde ekli`); return; }
   watchlist.push(raw);
   try { await saveWatchlist(); } catch (e) { watchlist.pop(); toast(e.message); return; }
   $("#watch-input").value = "";
-  toast(`${raw} eklendi`);
+  toast(`➕ ${raw} izleme listesine eklendi`);
   poll();
 }
+
 async function removeSymbol(sym) {
   const prev = watchlist;
   watchlist = watchlist.filter((s) => s !== sym);
   try { await saveWatchlist(); } catch (e) { watchlist = prev; toast(e.message); return; }
-  toast(`${sym} kaldırıldı`);
+  toast(`🗑️ ${sym} listeden çıkarıldı`);
   poll();
 }
+
 async function saveWatchlist() {
   await api("/watchlist", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ symbols: watchlist }) });
 }
 
 async function action(id, verb) {
-  try { await api(`/bots/${id}/${verb}`, { method: "POST" }); poll(); }
-  catch (e) { toast(e.message); }
+  try {
+    await api(`/bots/${id}/${verb}`, { method: "POST" });
+    toast(`Bot ${verb === "start" ? "başlatıldı" : "durduruldu"}`);
+    poll();
+  } catch (e) { toast(e.message); }
 }
 
 async function del(id) {
-  try { await api(`/bots/${id}`, { method: "DELETE" }); poll(); }
-  catch (e) { toast(e.message); }
+  if (!confirm("Bu botu silmek istediğinize emin misiniz?")) return;
+  try {
+    await api(`/bots/${id}`, { method: "DELETE" });
+    toast("Bot silindi");
+    poll();
+  } catch (e) { toast(e.message); }
 }
 
-// Equity chart (canvas line)
+// Enhanced Equity Chart Canvas Renderer
 function drawEquity(rows) {
   const canvas = $("#equity-chart");
+  if (!canvas) return;
+  
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = (rect.width || 800) * dpr;
+  canvas.height = (rect.height || 220) * dpr;
+
   const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (rows.length < 2) { ctx.fillStyle = "#9aa0a6"; ctx.font = "13px sans-serif"; ctx.fillText("Yeterli veri yok", 8, 20); return; }
-  const w = canvas.width, h = canvas.height;
-  const xs = rows.map((r) => r.ts), ys = rows.map((r) => r.value);
-  const min = Math.min(...ys), max = Math.max(...ys);
-  const span = max - min || 1;
-  ctx.strokeStyle = "#2ecc71"; ctx.lineWidth = 2; ctx.beginPath();
-  for (let i = 0; i < rows.length; i++) {
-    const px = 8 + ((xs[i] - xs[0]) / (xs[xs.length - 1] - xs[0])) * (w - 16);
-    const py = h - 8 - ((ys[i] - min) / span) * (h - 16);
-    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  ctx.scale(dpr, dpr);
+  const w = rect.width || 800;
+  const h = rect.height || 220;
+
+  ctx.clearRect(0, 0, w, h);
+
+  if (rows.length < 2) {
+    ctx.fillStyle = "#64748b";
+    ctx.font = "500 13px Inter, sans-serif";
+    ctx.fillText("Equity verisi henüz yetersiz...", 16, 32);
+    $("#equity-last").textContent = "$0.00";
+    return;
   }
+
+  const paddingLeft = 12, paddingRight = 12, paddingTop = 16, paddingBottom = 16;
+  const graphWidth = w - paddingLeft - paddingRight;
+  const graphHeight = h - paddingTop - paddingBottom;
+
+  const xs = rows.map((r) => r.ts);
+  const ys = rows.map((r) => r.value);
+  const min = Math.min(...ys);
+  const max = Math.max(...ys);
+  const span = max - min || 1;
+
+  // Background Grid Lines
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
+  ctx.lineWidth = 1;
+  for (let i = 1; i <= 3; i++) {
+    const yGrid = paddingTop + (graphHeight / 4) * i;
+    ctx.beginPath();
+    ctx.moveTo(paddingLeft, yGrid);
+    ctx.lineTo(w - paddingRight, yGrid);
+    ctx.stroke();
+  }
+
+  // Linear Line Points calculation
+  const points = rows.map((r, i) => {
+    const px = paddingLeft + ((xs[i] - xs[0]) / (xs[xs.length - 1] - xs[0])) * graphWidth;
+    const py = paddingTop + graphHeight - ((ys[i] - min) / span) * graphHeight;
+    return { x: px, y: py };
+  });
+
+  // Area Fill Gradient
+  const gradient = ctx.createLinearGradient(0, paddingTop, 0, h - paddingBottom);
+  gradient.addColorStop(0, "rgba(6, 182, 212, 0.25)");
+  gradient.addColorStop(1, "rgba(6, 182, 212, 0.0)");
+
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length; i++) {
+    ctx.lineTo(points[i].x, points[i].y);
+  }
+  ctx.lineTo(points[points.length - 1].x, h - paddingBottom);
+  ctx.lineTo(points[0].x, h - paddingBottom);
+  ctx.closePath();
+  ctx.fillStyle = gradient;
+  ctx.fill();
+
+  // Line Stroke
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length; i++) {
+    ctx.lineTo(points[i].x, points[i].y);
+  }
+  ctx.strokeStyle = "#06b6d4";
+  ctx.lineWidth = 2.5;
   ctx.stroke();
-  $("#equity-last").textContent = `$${ys[ys.length - 1].toFixed(2)}`;
+
+  // Last Point Pulse Dot
+  const lastP = points[points.length - 1];
+  ctx.beginPath();
+  ctx.arc(lastP.x, lastP.y, 4, 0, Math.PI * 2);
+  ctx.fillStyle = "#10b981";
+  ctx.fill();
+
+  const lastVal = ys[ys.length - 1];
+  $("#equity-last").textContent = `$${lastVal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function setTable(id, rows, columns, cell) {
@@ -153,41 +255,50 @@ async function poll() {
     const [balances, positions, bots, equity] = await Promise.all([
       api("/balances"), api("/positions"), api("/bots"), api("/equity?limit=200"),
     ]);
-    $("#mode").textContent = balances[0]?.asset || "—";
-    $("#balance").textContent = `$${Number(balances[0]?.total ?? 0).toFixed(2)}`;
+
+    const mode = balances[0]?.asset || "PAPER";
+    $("#mode").textContent = mode;
+    $("#balance").textContent = `$${Number(balances[0]?.total ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    $("#active-positions-count").textContent = positions.length;
+    $("#active-bots-count").textContent = bots.filter((b) => b.status === "running").length;
+
     drawEquity(equity);
 
-    setTable("positions", positions, ["symbol", "side", "size", "avgEntry", "markPrice"],
-      (r, c) => escapeHtml(r[c] ?? "—"));
+    setTable("positions", positions, ["symbol", "side", "size", "avgEntry", "markPrice"], (r, c) => {
+      if (c === "side") {
+        const color = r.side === "LONG" || r.side === "buy" ? "var(--green-emerald)" : "var(--red-rose)";
+        return `<span style="color: ${color}; font-weight: 600;">${escapeHtml(r.side)}</span>`;
+      }
+      return escapeHtml(r[c] ?? "—");
+    });
 
-    // Prices: unique symbols from watchlist + bots + positions
+    // Prices table
     const syms = [...new Set([...watchlist, ...positions.map((p) => p.symbol), ...bots.map((b) => b.symbol)])];
     const ticks = await Promise.all(syms.map((s) => api(`/ticks/${s}`)));
-    setTable("prices", syms.map((s, i) => ({ symbol: s, tick: ticks[i].tick })), ["symbol", "bid", "ask", "mid", ""],
-      (r, c) => {
-        if (c === "") return `<button data-rm="${escapeHtml(r.symbol)}">Kaldır</button>`;
-        if (c === "symbol") return escapeHtml(r.symbol);
-        return r.tick ? Number(r.tick[c]).toFixed(2) : "—";
-      });
+    setTable("prices", syms.map((s, i) => ({ symbol: s, tick: ticks[i].tick })), ["symbol", "bid", "ask", "mid", ""], (r, c) => {
+      if (c === "") return `<button data-rm="${escapeHtml(r.symbol)}" class="btn btn-sm btn-danger">Kaldır</button>`;
+      if (c === "symbol") return `<strong style="color: var(--text-main);">${escapeHtml(r.symbol)}</strong>`;
+      return r.tick ? Number(r.tick[c]).toFixed(2) : "—";
+    });
 
     document.querySelectorAll("#prices [data-rm]").forEach((btn) => {
       btn.addEventListener("click", () => removeSymbol(btn.dataset.rm));
     });
 
-    setTable("bots", bots, ["name", "strategy", "symbol", "status", "actions"],
-      (r, c) => {
-        if (c === "status") return `<span class="${escapeHtml(STATUS_CLASS[r.status] || "")}">${escapeHtml(r.status)}</span>`;
-        if (c === "actions") {
-          const verb = r.status === "running" ? "stop" : "start";
-          const label = r.status === "running" ? "Durdur" : "Başlat";
-          return `<button data-act="${verb}" data-id="${escapeHtml(r.id)}">${label}</button>
-                  <button data-act="detail" data-id="${escapeHtml(r.id)}">Detay</button>
-                  <button data-act="del" data-id="${escapeHtml(r.id)}" class="danger">Sil</button>`;
-        }
-        return escapeHtml(r[c] ?? "—");
-      });
+    setTable("bots", bots, ["name", "strategy", "symbol", "status", "actions"], (r, c) => {
+      if (c === "status") return `<span class="${escapeHtml(STATUS_CLASS[r.status] || "")}">${escapeHtml(r.status)}</span>`;
+      if (c === "actions") {
+        const verb = r.status === "running" ? "stop" : "start";
+        const label = r.status === "running" ? "Durdur" : "Başlat";
+        const btnClass = r.status === "running" ? "btn-danger" : "btn-primary";
+        return `<button data-act="${verb}" data-id="${escapeHtml(r.id)}" class="btn btn-sm ${btnClass}">${label}</button>
+                <button data-act="detail" data-id="${escapeHtml(r.id)}" class="btn btn-sm">Detay</button>
+                <button data-act="del" data-id="${escapeHtml(r.id)}" class="btn btn-sm btn-danger">Sil</button>`;
+      }
+      return escapeHtml(r[c] ?? "—");
+    });
 
-    // Delegated action buttons (event delegation)
     document.querySelectorAll("#bots [data-act]").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const act = btn.dataset.act, id = btn.dataset.id;
@@ -198,34 +309,46 @@ async function poll() {
     });
 
     if (detailId) await showDetail(detailId);
-    emptyRow("positions", ["symbol", "side", "size", "avgEntry", "markPrice"], "Henüz açık pozisyon yok");
-    emptyRow("prices", ["symbol", "bid", "ask", "mid", ""], "Sembol eklemek için yukarıdaki input'u kullanın");
-    emptyRow("bots", ["name", "strategy", "symbol", "status", "actions"], "Bot eklemek için yeni bot formunu kullanın");
-  } catch { /* silent — next poll retries */ }
+    emptyRow("positions", ["symbol", "side", "size", "avgEntry", "markPrice"], "Henüz açık bir pozisyon bulunmuyor");
+    emptyRow("prices", ["symbol", "bid", "ask", "mid", ""], "Sembol eklemek için yukarıdaki kutuyu kullanabilirsiniz");
+    emptyRow("bots", ["name", "strategy", "symbol", "status", "actions"], "Kayıtlı bot yok. 'Yeni Bot Oluştur' sekmesinden ekleyebilirsiniz.");
+  } catch { /* retry on next cycle */ }
 }
 
 async function showDetail(id) {
   try {
     const d = await api(`/bots/${id}`);
-    $("#detail").classList.remove("hidden");
     document.querySelectorAll(".view").forEach((v) => v.classList.add("hidden"));
     $("#detail").classList.remove("hidden");
-    $("#detail-name").textContent = `${d.name} (${d.status})`;
+    $("#detail-name").textContent = `${d.name} (${d.strategy.toUpperCase()}) — ${d.status.toUpperCase()}`;
+
     setTable("detail-orders", d.orders || [], ["id", "side", "price", "size", "status", "filled_size"],
       (r, c) => escapeHtml(r[c] ?? "—"));
     setTable("detail-positions", d.positions || [], ["symbol", "side", "size", "avg_entry", "closed_at"],
-      (r, c) => (c === "closed_at" ? escapeHtml(r[c] ? new Date(r[c]).toLocaleString() : "açık") : escapeHtml(r[c] ?? "—")));
+      (r, c) => (c === "closed_at" ? escapeHtml(r[c] ? new Date(r[c]).toLocaleString() : "Açık Pozisyon") : escapeHtml(r[c] ?? "—")));
     setTable("detail-runs", d.runs || [], ["mode", "started_at", "stopped_at", "stop_reason"],
       (r, c) => (c === "started_at" || c === "stopped_at") ? escapeHtml(r[c] ? new Date(r[c]).toLocaleString() : "—") : escapeHtml(r[c] ?? "—"));
-    emptyRow("detail-orders", ["id", "side", "price", "size", "status", "filled_size"], "Kayıt yok");
-    emptyRow("detail-positions", ["symbol", "side", "size", "avg_entry", "closed_at"], "Kayıt yok");
-    emptyRow("detail-runs", ["mode", "started_at", "stopped_at", "stop_reason"], "Kayıt yok");
+
+    emptyRow("detail-orders", ["id", "side", "price", "size", "status", "filled_size"], "Henüz verilmiş bir emir yok");
+    emptyRow("detail-positions", ["symbol", "side", "size", "avg_entry", "closed_at"], "Pozisyon geçmişi bulunmuyor");
+    emptyRow("detail-runs", ["mode", "started_at", "stopped_at", "stop_reason"], "Çalıştırma kaydı yok");
   } catch (e) { toast(e.message); }
 }
 
-$("#back").addEventListener("click", () => { detailId = null; document.querySelectorAll(".view").forEach((v) => v.classList.add("hidden")); $("#overview").classList.remove("hidden"); poll(); });
+$("#back").addEventListener("click", () => {
+  detailId = null;
+  document.querySelectorAll(".view").forEach((v) => v.classList.add("hidden"));
+  $("#overview").classList.remove("hidden");
+  poll();
+});
 
 $("#watch-add").addEventListener("click", addSymbol);
+$("#watch-input").addEventListener("keypress", (e) => { if (e.key === "Enter") addSymbol(); });
+
+window.addEventListener("resize", () => {
+  api("/equity?limit=200").then((equity) => drawEquity(equity)).catch(() => {});
+});
 
 poll();
-setInterval(poll, 2000);
+setInterval(poll, 2500);
+

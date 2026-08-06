@@ -2,84 +2,191 @@
 <html lang="tr">
 <head>
   <meta charset="utf-8">
-  <title>HUPER — Bot Engine</title>
+  <title>HUPER — Bot Engine & Trading Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <header>
-    <h1>HUPER</h1>
-    <span id="mode" class="badge">…</span>
+  <header class="navbar">
+    <div class="brand">
+      <div class="logo-icon">⚡</div>
+      <div class="brand-text">
+        <h1>HUPER</h1>
+        <span class="subtext">Trading Engine</span>
+      </div>
+      <span id="mode" class="badge mode-badge">CONNECTING…</span>
+    </div>
+
+    <div class="header-right">
+      <div class="balance-widget">
+        <span class="label">Bakiye</span>
+        <span id="balance" class="balance-val">$0.00</span>
+      </div>
+      <button id="btn-emergency" class="btn btn-danger btn-panic">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        PANİK DURDURMA
+      </button>
+    </div>
   </header>
 
-  <nav class="tabs">
-    <button data-tab="overview" class="active">Genel Bakış</button>
-    <button data-tab="bots">Botlar</button>
+  <nav class="nav-tabs">
+    <button data-tab="overview" class="tab-btn active">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Genel Bakış
+    </button>
+    <button data-tab="bots" class="tab-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      Botlar & Stratejiler
+    </button>
   </nav>
 
-  <section id="overview" class="view">
-    <div class="cards">
-      <div class="card"><h3>Bakiye</h3><p id="balance">—</p></div>
-      <div class="card"><h3>Son Equity</h3><p id="equity-last">—</p></div>
-    </div>
-    <div class="card wide">
-      <h3>Equity</h3>
-      <canvas id="equity-chart" height="200"></canvas>
-    </div>
-    <div class="card wide">
-      <h3>Pozisyonlar</h3>
-      <table id="positions">
-        <thead><tr><th>Sembol</th><th>Taraf</th><th>Boyut</th><th>Ort. Giriş</th><th>Fiyat</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-    <div class="card wide">
-      <h3>Fiyatlar</h3>
-      <div class="watch-controls">
-        <input id="watch-input" placeholder="Sembol (örn. BTC)" size="12">
-        <button type="button" id="watch-add">Ekle</button>
+  <main class="content-container">
+    <section id="overview" class="view">
+      <div class="metrics-grid">
+        <div class="card metric-card">
+          <div class="card-header">
+            <h3>Net Varlık (Equity)</h3>
+            <span class="icon-bubble">📈</span>
+          </div>
+          <p id="equity-last" class="metric-value">$0.00</p>
+          <span class="metric-sub">Son hesaplanan toplam bakiye</span>
+        </div>
+        <div class="card metric-card">
+          <div class="card-header">
+            <h3>Açık Pozisyonlar</h3>
+            <span class="icon-bubble">⚡</span>
+          </div>
+          <p id="active-positions-count" class="metric-value">0</p>
+          <span class="metric-sub">Aktif risk taşıyan kontratlar</span>
+        </div>
+        <div class="card metric-card">
+          <div class="card-header">
+            <h3>Çalışan Botlar</h3>
+            <span class="icon-bubble">🤖</span>
+          </div>
+          <p id="active-bots-count" class="metric-value">0</p>
+          <span class="metric-sub">Otomatik stratejiler</span>
+        </div>
       </div>
-      <table id="prices">
-        <thead><tr><th>Sembol</th><th>Bid</th><th>Ask</th><th>Mid</th><th></th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
 
-  <section id="bots" class="view hidden">
-    <div class="card wide">
-      <h3>Yeni Bot</h3>
-      <form id="new-bot">
-        <input name="name" placeholder="İsim" required>
-        <input name="symbol" placeholder="Sembol (BTC)" required>
-        <select name="strategy" id="strategy-select">
-          <option value="grid">grid</option>
-          <option value="dca">dca</option>
-          <option value="trend">trend</option>
-        </select>
-        <div id="params"></div>
-        <button type="submit">Oluştur</button>
-      </form>
-      <p id="form-error" class="error hidden"></p>
-    </div>
-    <div class="card wide">
-      <h3>Botlar</h3>
-      <table id="bots">
-        <thead><tr><th>Ad</th><th>Strateji</th><th>Sembol</th><th>Durum</th><th>İşlemler</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
+      <div class="card chart-card wide">
+        <div class="card-header">
+          <h3>Equity Eğrisi (Zaman Serisi)</h3>
+          <span class="badge badge-neutral">Son 200 Kayıt</span>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="equity-chart" height="220"></canvas>
+        </div>
+      </div>
 
-  <section id="detail" class="view hidden">
-    <button id="back">← Geri</button>
-    <h2 id="detail-name">—</h2>
-    <div class="card wide"><h3>Emirler</h3><table id="detail-orders"></table></div>
-    <div class="card wide"><h3>Pozisyonlar</h3><table id="detail-positions"></table></div>
-    <div class="card wide"><h3>Çalıştırmalar</h3><table id="detail-runs"></table></div>
-  </section>
+      <div class="grid-2col">
+        <div class="card wide">
+          <div class="card-header">
+            <h3>Açık Pozisyonlar</h3>
+          </div>
+          <div class="table-responsive">
+            <table id="positions">
+              <thead><tr><th>Sembol</th><th>Taraf</th><th>Boyut</th><th>Ort. Giriş</th><th>Fiyat</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card wide">
+          <div class="card-header">
+            <h3>Canlı Piyasa Takibi</h3>
+          </div>
+          <div class="watch-controls">
+            <div class="input-group">
+              <input id="watch-input" placeholder="Sembol ekle (örn. BTC, ETH)" size="12">
+              <button type="button" id="watch-add" class="btn btn-primary">Ekle</button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table id="prices">
+              <thead><tr><th>Sembol</th><th>Bid (Alış)</th><th>Ask (Satış)</th><th>Mid (Orta)</th><th>İşlem</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="bots" class="view hidden">
+      <div class="grid-2col">
+        <div class="card">
+          <div class="card-header">
+            <h3>Yeni Bot Oluştur</h3>
+          </div>
+          <form id="new-bot" class="modern-form">
+            <div class="form-group">
+              <label>Bot Adı</label>
+              <input name="name" placeholder="Örn: Grid Bot Alpha" required>
+            </div>
+            <div class="form-group">
+              <label>Sembol</label>
+              <input name="symbol" placeholder="Örn: BTC" required>
+            </div>
+            <div class="form-group">
+              <label>Strateji</label>
+              <select name="strategy" id="strategy-select">
+                <option value="grid">Grid Trading</option>
+                <option value="dca">Dollar-Cost Averaging (DCA)</option>
+                <option value="trend">Trend Following (EMA+RSI)</option>
+              </select>
+            </div>
+            <div class="form-group full-width">
+              <label>Strateji Parametreleri</label>
+              <div id="params" class="params-grid"></div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Botu Başlat & Oluştur</button>
+          </form>
+          <p id="form-error" class="error-msg hidden"></p>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>Mevcut Botlar</h3>
+          </div>
+          <div class="table-responsive">
+            <table id="bots">
+              <thead><tr><th>Ad</th><th>Strateji</th><th>Sembol</th><th>Durum</th><th>İşlemler</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="detail" class="view hidden">
+      <div class="detail-header">
+        <button id="back" class="btn btn-secondary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          Geri Dön
+        </button>
+        <h2 id="detail-name">—</h2>
+      </div>
+
+      <div class="card wide">
+        <div class="card-header"><h3>Emir Geçmişi</h3></div>
+        <div class="table-responsive"><table id="detail-orders"></table></div>
+      </div>
+      <div class="card wide">
+        <div class="card-header"><h3>Pozisyon Detayları</h3></div>
+        <div class="table-responsive"><table id="detail-positions"></table></div>
+      </div>
+      <div class="card wide">
+        <div class="card-header"><h3>Çalıştırma Logları</h3></div>
+        <div class="table-responsive"><table id="detail-runs"></table></div>
+      </div>
+    </section>
+  </main>
 
   <div id="toast" class="toast hidden"></div>
   <script src="/app.js"></script>
 </body>
 </html>
+

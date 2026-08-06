@@ -2,7 +2,7 @@
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue.svg)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18.0-green.svg)](https://nodejs.org/)
-[![Test Status](https://img.shields.io/badge/Tests-66%20passing-brightgreen.svg)](https://vitest.dev/)
+[![Test Status](https://img.shields.io/badge/Tests-77%20passing-brightgreen.svg)](https://vitest.dev/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **HUPER** is a lightweight, high-performance, single-user automated trading engine and algorithmic bot platform designed specifically for **Hyperliquid Perpetual Futures**. Built with TypeScript and Node.js in an npm workspace monorepo, HUPER offers seamless dual-mode execution (`paper` simulation and `live` DEX trading), pre-trade risk controls, automated crash recovery, SQLite WAL state persistence, a REST API, and a built-in real-time Web Dashboard.
@@ -40,7 +40,7 @@
 - **Pre-Trade Risk Management**: Strict risk gate protecting against over-leverage, size drift, excessive order notional, duplicate orders, and bad limit pricing.
 - **State Persistence & Crash Recovery**: SQLite database using Write-Ahead Logging (`WAL` mode) preserving bot instances, order history, fill execution details, positions, and equity balance over time. Automatically detects ungraceful crashes on boot and safely updates stale state.
 - **Panic Emergency Stop**: One-click REST/UI trigger that immediately stops all active strategies, cancels pending open orders, and market-flattens all active exchange positions with `reduceOnly` orders.
-- **Real-Time Web Dashboard**: Built-in dark-themed UI hosted directly by the engine for visual monitoring of equity curves, live ticks, bot status, active positions, and manual controls.
+- **Modern Glassmorphism Web Dashboard**: Built-in dark-themed UI featuring high-DPI canvas equity curves, quick metrics overview cards, symbol price watchlists, interactive bot management, and a panic emergency stop control.
 
 ---
 
