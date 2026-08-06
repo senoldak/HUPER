@@ -1,6 +1,6 @@
 # Phase 3a Implementation Plan: Güvenlik & Teknik Borç Kapanışı
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Phase 2'de ertelenen üç güvenlik/teknik borç öğesini kapat: paper exchange `reduceOnly` flip koruması, panel XSS fix'i, risk limitleri dokümantasyonu.
 
@@ -30,7 +30,7 @@
 - Consumes: `NewOrder.reduceOnly?: boolean` (`@huper/core`), `Order` (`extends NewOrder`), mevcut `placeOrder`/`applyFill`/`addPosition`/`reducePosition`.
 - Produces: `placeOrder()` davranışı — `reduceOnly` emirler ters pozisyon yoksa `throw new Error("reduce-only order rejected: no opposing position")`; ters pozisyon varsa dolum `Math.min(emirBoyutu, pozisyonBoyutu)` ile sınırlanır. Emir kaydı (`Order.reduceOnly`) artık sweep güvenliği için flag taşır.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `packages/engine/tests/paper.test.ts` — `describe("PaperExchange", ...)` bloğu İÇİNE, son `it`'ten sonra aynı girintide ekle:
 
@@ -39,7 +39,6 @@ it("rejects reduce-only sell when no opposing position", async () => {
   const ex = new PaperExchange({ initialBalance: 1000 });
   ex.pushTick({ symbol: "BTC", bid: 100, ask: 101, mid: 100.5, timestamp: 1 });
 
-  await expect(ex.placeOrder({ symbol: "BTC", side: Side.Buy, price: null, size: 1 })).resolves.toBeDefined();
   await expect(ex.placeOrder({ symbol: "BTC", side: Side.Sell, price: null, size: 2, reduceOnly: true }))
     .rejects.toThrow("no opposing position");
   expect(await ex.openPositions()).toHaveLength(0);
@@ -78,12 +77,12 @@ it("leaves non-reduce-only orders unaffected", async () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npm test -w @huper/engine -- paper.test.ts`
 Expected: FAIL — 4 yeni test: 2'si `rejects.toThrow` beklerken mevcut kod emri doldurup çözümlüyor; `fills reduce-only within position size` testinde `filledSize` 2 olup `toHaveLength(0)` başarısız (pozisyon short'a döner); non-reduceOnly testi zaten geçer (regresyon).
 
-- [ ] **Step 3: Implement in `paper.ts`**
+- [x] **Step 3: Implement in `paper.ts`**
 
 `packages/engine/src/exchange/paper.ts` — `applyFill`'ten ÖNCE yeni özel metot:
 
@@ -154,7 +153,7 @@ private applyFill(n: NewOrder, px: number, size: number): void {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -w @huper/engine -- paper.test.ts`
 Expected: PASS — mevcut 5 + yeni 4 test.
@@ -162,7 +161,7 @@ Expected: PASS — mevcut 5 + yeni 4 test.
 Run: `npm test -w @huper/engine`
 Expected: tüm testler geçer (10 dosya, 58 test).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/engine/src/exchange/paper.ts packages/engine/tests/paper.test.ts
@@ -181,7 +180,7 @@ git commit -m "fix(paper): reject and clamp reduce-only fills to prevent positio
 - Consumes: mevcut `setTable(id, rows, columns, cell)` ve tüm `cell` callback'leri.
 - Produces: `escapeHtml(v)` yardımcı fonksiyonu (app.js). Kullanıcı tarafından üretilen değerlerin hiçbiri `innerHTML`'e escape edilmeden girmez.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `packages/engine/tests/server.test.ts` — `describe("server", ...)` bloğu İÇİNE ekle:
 
@@ -193,12 +192,12 @@ it("panel app.js escapes dynamic cell values", async () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm test -w @huper/engine -- server.test.ts`
 Expected: FAIL — `"function escapeHtml"` mevcut `app.js`'te yok.
 
-- [ ] **Step 3: Implement in `app.js`**
+- [x] **Step 3: Implement in `app.js`**
 
 `packages/engine/public/app.js` — `const $ = ...` satırından sonra yardımcıyı ekle:
 
@@ -252,7 +251,7 @@ setTable("detail-runs", d.runs || [], ["mode", "started_at", "stopped_at", "stop
 
 Not: `detail-name` zaten `textContent` ile yazılır — güvenli. `drawEquity`'nin `$("#equity-last").textContent = ...` satırı güvenli (textContent).
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -w @huper/engine -- server.test.ts`
 Expected: PASS.
@@ -260,7 +259,7 @@ Expected: PASS.
 Run: `npm test -w @huper/engine`
 Expected: tüm testler geçer (10 dosya, 59 test).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/engine/public/app.js packages/engine/tests/server.test.ts
@@ -278,7 +277,7 @@ git commit -m "fix(web): escape dynamic panel cell values against XSS"
 - Consumes: `DEFAULT_RISK` değerleri (`packages/core/src/types.ts`: `maxOrderNotionalPct: 0.05`, `perBotMaxPositionPct: 0.2`, `globalMaxPositionPct: 0.5`, `maxPriceDriftPct: 0.05`).
 - Produces: README'de "Risk limitleri" bölümü — kullanıcı rehberi.
 
-- [ ] **Step 1: Add the section**
+- [x] **Step 1: Add the section**
 
 `README.md` — "Geliştirme (lokal)" bölümünden SONRA, "Docker (VPS)" bölümünden ÖNCE ekle:
 
@@ -294,7 +293,7 @@ Varsayılan risk yapılandırması `packages/core/src/types.ts` içindeki `DEFAU
 Örnek: 10.000 USDC bakiyeyle BTC'de grid botu kurarken `orderSize`'ı `0.05 × 10000 / BTC_fiyatı` olarak hesapla (yaklaşık 0.0077 BTC @ $65k). Daha büyük boyutlar emir reddine ("exceeds order notional cap") yol açar.
 ```
 
-- [ ] **Step 2: Verify no code impact**
+- [x] **Step 2: Verify no code impact**
 
 Run: `npm run typecheck`
 Expected: 0 hata (sadece md değişikliği, kod etkilenmez).
@@ -302,7 +301,7 @@ Expected: 0 hata (sadece md değişikliği, kod etkilenmez).
 Run: `npm test -w @huper/engine`
 Expected: tüm testler geçer (10 dosya, 59 test — değişiklik yok).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add README.md
@@ -313,7 +312,7 @@ git commit -m "docs(readme): document DEFAULT_RISK order size guidance"
 
 ### Finalization
 
-- [ ] **Full verification**
+- [x] **Full verification**
 
 ```bash
 npm run typecheck
@@ -321,7 +320,7 @@ npm test
 ```
 Expected: 0 typecheck hatası; core 7/7 + engine 59/59 test geçer.
 
-- [ ] **Manual smoke test**
+- [x] **Manual smoke test**
 
 1. Kapat: port 3001'de stale process varsa durdur.
 2. Başlat:
