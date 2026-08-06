@@ -20,6 +20,7 @@ export class EmergencyStop {
         this.engine.logHandle().error({ symbol: p.symbol, err: String(err) }, "emergency close failed");
       }
     }
+    await this.engine.reconcileAllPositions();
     return { stoppedBots, closedPositions: closed };
   }
 }

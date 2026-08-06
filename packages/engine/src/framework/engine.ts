@@ -82,6 +82,7 @@ export class Engine {
     this.runners.set(id, runner);
     try {
       await runner.start();
+      try { await this.reconcilePositions(id, row.symbol); } catch (e) { this.log.warn({ botId: id, symbol: row.symbol, err: (e as Error).message }, "position reconcile failed"); }
       this.store.updateBot(id, { status: "running" });
     } catch (e) {
       this.runners.delete(id);
@@ -147,6 +148,7 @@ export class Engine {
     this.orderIds.get(botId)!.add(placed.id);
     this.recentOrders.push({ id: placed.id, botId, symbol, side: placed.side, price: placed.price, size: placed.size, createdAt: Date.now() });
     if (this.recentOrders.length > 50) this.recentOrders.shift();
+    try { await this.reconcilePositions(botId, symbol); } catch (e) { this.log.warn({ botId, symbol, err: (e as Error).message }, "position reconcile failed"); }
     return placed;
   }
 
@@ -190,6 +192,26 @@ export class Engine {
       const b = await this.exchange.balances();
       if (b.length > 0) this.bal = b[0].total;
     } catch (e) { this.log.warn({ symbol, err: (e as Error).message }, "balances refresh failed"); }
+  }
+
+  async reconcileAllPositions(): Promise<void> {
+    for (const b of this.store.listBots()) {
+      try { await this.reconcilePositions(b.id, b.symbol); } catch { /* best-effort */ }
+    }
+  }
+
+  private async reconcilePositions(botId: string, symbol: string): Promise<void> {
+    const live = (await this.exchange.openPositions()).find((p) => p.symbol === symbol);
+    const open = this.store.listPositions(botId).find((p) => p.symbol === symbol && p.closed_at === null);
+    if (!live && open) { this.store.closePosition(open.id, 0); return; }
+    if (live && !open) {
+      this.store.createPosition({ id: randomUUID(), bot_id: botId, symbol: live.symbol, side: live.side, size: live.size, avg_entry: live.avgEntry, mark_price: live.markPrice ?? null, realized_pnl: 0, opened_at: Date.now(), closed_at: null });
+      return;
+    }
+    if (live && open && (open.size !== live.size || open.side !== live.side || open.avg_entry !== live.avgEntry)) {
+      this.store.closePosition(open.id, 0);
+      this.store.createPosition({ id: randomUUID(), bot_id: botId, symbol: live.symbol, side: live.side, size: live.size, avg_entry: live.avgEntry, mark_price: live.markPrice ?? null, realized_pnl: 0, opened_at: Date.now(), closed_at: null });
+    }
   }
 
   private async notionalFor(botId: string): Promise<number> {

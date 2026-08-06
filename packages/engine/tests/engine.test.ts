@@ -78,4 +78,36 @@ describe("Engine", () => {
     await expect(engine.startBot(bot.id)).rejects.toThrow("boom");
     expect(store.getBot(bot.id)?.status).toBe("error");
   });
+
+  it("persists a position from the strategy order flow", async () => {
+    const bot = await engine.createBot({ name: "Persist", strategy: "fake", symbol: "ETH", params: { threshold: 99 } });
+    await engine.startBot(bot.id);
+    exchange.pushTick({ symbol: "ETH", bid: 100, ask: 100, mid: 101, timestamp: 3 });
+    await new Promise((r) => setTimeout(r, 10));
+
+    const open = store.listPositions(bot.id).find((p) => p.closed_at === null);
+    expect(open).toBeDefined();
+    expect(open?.side).toBe("buy");
+    expect(open?.size).toBe(0.1);
+    const detail = await engine.getBotDetail(bot.id);
+    expect(detail?.positions.length ?? 0).toBeGreaterThan(0);
+
+    await engine.stopBot(bot.id, "stopped");
+  });
+
+  it("binds per-bot position caps from persisted positions", async () => {
+    const bot = await engine.createBot({ name: "Caps", strategy: "fake", symbol: "SOL", params: { threshold: 99 } });
+    await engine.startBot(bot.id);
+    exchange.pushTick({ symbol: "SOL", bid: 100, ask: 100, mid: 100, timestamp: 4 });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(store.listPositions(bot.id).some((p) => p.closed_at === null && p.side === "buy" && p.size === 0.1)).toBe(true);
+
+    for (let i = 0; i < 10; i++) {
+      await engine.executeOrder(bot.id, "SOL", { symbol: "SOL", side: "buy", price: null, size: 1.1 + i * 0.1, type: "market" });
+    }
+    await expect(engine.executeOrder(bot.id, "SOL", { symbol: "SOL", side: "buy", price: null, size: 5, type: "market" }))
+      .rejects.toThrow("exceeds per-bot position cap");
+
+    await engine.stopBot(bot.id, "stopped");
+  });
 });
