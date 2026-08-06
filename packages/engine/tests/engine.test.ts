@@ -264,4 +264,21 @@ describe("Engine", () => {
     await e.stopBot(bot.id, "stopped");
     await e.stop();
   });
+
+  it("records global equity snapshots and exposes them via listEquity", async () => {
+    const ex = new PaperExchange({ initialBalance: 7777 });
+    const st = new Store(openStore(":memory:"));
+    const reg = new StrategyRegistry();
+    const e = new Engine({ exchange: ex, store: st, risk: new RiskManager(DEFAULT_RISK), registry: reg, log: { info: () => {}, error: () => {}, warn: () => {} } });
+
+    await e.recordEquity();
+    await e.recordEquity();
+
+    const rows = e.listEquity();
+    expect(rows).toHaveLength(2);
+    expect(rows[0].value).toBe(7777);
+    expect(rows.every((r) => r.bot_id === null)).toBe(true);
+
+    expect(e.listEquity(1)).toHaveLength(1);
+  });
 });

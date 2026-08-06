@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { OrderType, Side, type ExchangeAdapter, type NewOrder, type Order, type PriceTick, type Position, type RecentOrder } from "@huper/core";
 import type { Store } from "../store/store.js";
-import type { PersistedOrder, PersistedPosition, RunRow, BotRow } from "../store/types.js";
+import type { PersistedOrder, PersistedPosition, RunRow, BotRow, EquityRow } from "../store/types.js";
 import type { RiskManager } from "../risk/risk.js";
 import type { StrategyRegistry } from "./registry.js";
 import { BotRunner } from "./runner.js";
@@ -35,6 +35,17 @@ export class Engine {
   balance(): Promise<number> { return Promise.resolve(this.bal); }
   logHandle(): LoggerLike { return this.log; }
   orderIdsFor(botId: string): Set<string> { return this.orderIds.get(botId) ?? new Set(); }
+
+  async recordEquity(): Promise<void> {
+    const b = await this.exchange.balances();
+    if (b.length > 0) {
+      this.store.appendEquity({ id: randomUUID(), botId: null, ts: Date.now(), value: b[0].total });
+    }
+  }
+
+  listEquity(limit?: number): EquityRow[] {
+    return this.store.listEquity(undefined, limit);
+  }
 
   async start(): Promise<void> {
     this.unsubs.push(this.exchange.onTick((t) => { this.ticks.set(t.symbol, t); this.dispatch(t); }));
