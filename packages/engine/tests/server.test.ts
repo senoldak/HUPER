@@ -80,6 +80,12 @@ describe("server", () => {
     expect(res.statusCode).toBe(200);
   });
 
+  it("panel app.js escapes dynamic cell values", async () => {
+    const res = await app.inject({ method: "GET", url: "/app.js" });
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toContain("function escapeHtml");
+  });
+
   it("returns global equity series via /equity", async () => {
     await engine.recordEquity();
     const res = await app.inject({ method: "GET", url: "/equity?limit=5" });

@@ -1,4 +1,10 @@
 const $ = (sel) => document.querySelector(sel);
+
+function escapeHtml(v) {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
 const paramsDefs = {
   grid: { levels: "number", spacingPct: "number", orderSize: "number" },
   dca: { stepPct: "number", takeProfitPct: "number", totalSteps: "number", baseSize: "number", sizeMultiplier: "number" },
@@ -106,22 +112,25 @@ async function poll() {
     drawEquity(equity);
 
     setTable("positions", positions, ["symbol", "side", "size", "avgEntry", "markPrice"],
-      (r, c) => (r[c] ?? "—"));
+      (r, c) => escapeHtml(r[c] ?? "—"));
 
     // Prices: unique symbols from bots + positions
     const syms = [...new Set([...positions.map((p) => p.symbol), ...bots.map((b) => b.symbol)])];
     const ticks = await Promise.all(syms.map((s) => api(`/ticks/${s}`)));
     setTable("prices", syms.map((s, i) => ({ symbol: s, tick: ticks[i].tick })), ["symbol", "bid", "ask", "mid"],
-      (r, c) => c === "symbol" ? r.symbol : (r.tick ? Number(r.tick[c]).toFixed(2) : "—"));
+      (r, c) => c === "symbol" ? escapeHtml(r.symbol) : (r.tick ? Number(r.tick[c]).toFixed(2) : "—"));
 
     setTable("bots", bots, ["name", "strategy", "symbol", "status", "actions"],
       (r, c) => {
-        if (c === "status") return `<span class="${STATUS_CLASS[r.status]}">${r.status}</span>`;
+        if (c === "status") return `<span class="${escapeHtml(STATUS_CLASS[r.status] || "")}">${escapeHtml(r.status)}</span>`;
         if (c === "actions") {
-          const stop = r.status === "running" ? `<button data-act="stop" data-id="${r.id}">Durdur</button>` : `<button data-act="start" data-id="${r.id}">Başlat</button>`;
-          return `${stop} <button data-act="detail" data-id="${r.id}">Detay</button> <button data-act="del" data-id="${r.id}" class="danger">Sil</button>`;
+          const verb = r.status === "running" ? "stop" : "start";
+          const label = r.status === "running" ? "Durdur" : "Başlat";
+          return `<button data-act="${verb}" data-id="${escapeHtml(r.id)}">${label}</button>
+                  <button data-act="detail" data-id="${escapeHtml(r.id)}">Detay</button>
+                  <button data-act="del" data-id="${escapeHtml(r.id)}" class="danger">Sil</button>`;
         }
-        return r[c] ?? "—";
+        return escapeHtml(r[c] ?? "—");
       });
 
     // Delegated action buttons (event delegation)
@@ -146,11 +155,11 @@ async function showDetail(id) {
     $("#detail").classList.remove("hidden");
     $("#detail-name").textContent = `${d.name} (${d.status})`;
     setTable("detail-orders", d.orders || [], ["id", "side", "price", "size", "status", "filled_size"],
-      (r, c) => (r[c] ?? "—"));
+      (r, c) => escapeHtml(r[c] ?? "—"));
     setTable("detail-positions", d.positions || [], ["symbol", "side", "size", "avg_entry", "closed_at"],
-      (r, c) => (c === "closed_at" ? (r[c] ? new Date(r[c]).toLocaleString() : "açık") : (r[c] ?? "—")));
+      (r, c) => (c === "closed_at" ? escapeHtml(r[c] ? new Date(r[c]).toLocaleString() : "açık") : escapeHtml(r[c] ?? "—")));
     setTable("detail-runs", d.runs || [], ["mode", "started_at", "stopped_at", "stop_reason"],
-      (r, c) => (c === "started_at" || c === "stopped_at") ? (r[c] ? new Date(r[c]).toLocaleString() : "—") : (r[c] ?? "—"));
+      (r, c) => (c === "started_at" || c === "stopped_at") ? escapeHtml(r[c] ? new Date(r[c]).toLocaleString() : "—") : escapeHtml(r[c] ?? "—"));
   } catch (e) { toast(e.message); }
 }
 
