@@ -98,16 +98,29 @@ export class PaperExchange implements ExchangeAdapter {
     return this.orders.get(id);
   }
 
+  private opposingSize(n: NewOrder): number {
+    const p = this.positions.get(n.symbol);
+    if (!p || p.size === 0) return 0;
+    if (n.side === Side.Sell && p.side === Side.Buy) return p.size;
+    if (n.side === Side.Buy && p.side === Side.Sell) return p.size;
+    return 0;
+  }
+
   async placeOrder(n: NewOrder): Promise<Order> {
     const id = `pp-${++seq}`;
     const type = n.type ?? OrderType.Limit;
+    if (n.reduceOnly && this.opposingSize(n) === 0) {
+      throw new Error("reduce-only order rejected: no opposing position");
+    }
     const fillPrice = this.fillPriceFor(n, type);
 
     let order: Order;
     if (fillPrice !== null) {
-      order = this.buildOrder(n, id, OrderStatus.Filled, fillPrice, Math.abs(n.size));
+      const requested = Math.abs(n.size);
+      const fillSize = n.reduceOnly ? Math.min(requested, this.opposingSize(n)) : requested;
+      order = this.buildOrder(n, id, OrderStatus.Filled, fillPrice, fillSize);
       this.orders.set(id, order);
-      this.applyFill(n, fillPrice, Math.abs(n.size));
+      this.applyFill(n, fillPrice, fillSize);
       for (const cb of this.fillCbs) cb(order);
     } else {
       order = this.buildOrder(n, id, OrderStatus.Open, null, 0);
@@ -141,6 +154,7 @@ export class PaperExchange implements ExchangeAdapter {
       type: n.type ?? OrderType.Limit,
       price: n.price,
       size: n.size,
+      reduceOnly: n.reduceOnly,
       status,
       filledSize,
       avgFillPrice,
@@ -165,12 +179,18 @@ export class PaperExchange implements ExchangeAdapter {
   }
 
   private applyFill(n: NewOrder, px: number, size: number): void {
+    let fillSize = size;
+    if (n.reduceOnly) {
+      const opposing = this.opposingSize(n);
+      if (opposing === 0) return;
+      fillSize = Math.min(size, opposing);
+    }
     if (n.side === Side.Buy) {
-      this.cash -= px * size;
-      this.addPosition(n.symbol, size, px);
+      this.cash -= px * fillSize;
+      this.addPosition(n.symbol, fillSize, px);
     } else {
-      this.cash += px * size;
-      this.reducePosition(n.symbol, size, px);
+      this.cash += px * fillSize;
+      this.reducePosition(n.symbol, fillSize, px);
     }
   }
 

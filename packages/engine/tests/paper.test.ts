@@ -60,4 +60,45 @@ describe("PaperExchange", () => {
     expect(pos.side).toBe(Side.Sell);
     expect(pos.avgEntry).toBe(110);
   });
+
+  it("rejects reduce-only sell when no opposing position", async () => {
+    const ex = new PaperExchange({ initialBalance: 1000 });
+    ex.pushTick({ symbol: "BTC", bid: 100, ask: 101, mid: 100.5, timestamp: 1 });
+
+    await expect(ex.placeOrder({ symbol: "BTC", side: Side.Sell, price: null, size: 2, reduceOnly: true }))
+      .rejects.toThrow("no opposing position");
+    expect(await ex.openPositions()).toHaveLength(0);
+  });
+
+  it("rejects reduce-only when position is same direction", async () => {
+    const ex = new PaperExchange({ initialBalance: 1000 });
+    ex.pushTick({ symbol: "BTC", bid: 100, ask: 101, mid: 100.5, timestamp: 1 });
+
+    await ex.placeOrder({ symbol: "BTC", side: Side.Sell, price: null, size: 1 }); // short
+    await expect(ex.placeOrder({ symbol: "BTC", side: Side.Sell, price: null, size: 1, reduceOnly: true }))
+      .rejects.toThrow("no opposing position");
+  });
+
+  it("fills reduce-only within position size and never flips", async () => {
+    const ex = new PaperExchange({ initialBalance: 1000 });
+    ex.pushTick({ symbol: "BTC", bid: 100, ask: 101, mid: 100.5, timestamp: 1 });
+
+    await ex.placeOrder({ symbol: "BTC", side: Side.Buy, price: null, size: 1 }); // long 1
+    const o = await ex.placeOrder({ symbol: "BTC", side: Side.Sell, price: null, size: 2, reduceOnly: true });
+
+    expect(o.filledSize).toBe(1); // clamped to position
+    const pos = await ex.openPositions();
+    expect(pos).toHaveLength(0); // position closed, NOT flipped to short
+  });
+
+  it("leaves non-reduce-only orders unaffected", async () => {
+    const ex = new PaperExchange({ initialBalance: 1000 });
+    ex.pushTick({ symbol: "BTC", bid: 100, ask: 101, mid: 100.5, timestamp: 1 });
+
+    await ex.placeOrder({ symbol: "BTC", side: Side.Buy, price: null, size: 1 }); // long 1
+    await ex.placeOrder({ symbol: "BTC", side: Side.Sell, price: null, size: 2 }); // no reduceOnly -> flips to short 1
+    const pos = (await ex.openPositions())[0];
+    expect(pos.side).toBe(Side.Sell);
+    expect(pos.size).toBe(1);
+  });
 });
