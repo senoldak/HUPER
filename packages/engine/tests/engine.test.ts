@@ -7,7 +7,6 @@ import { RiskManager } from "../src/risk/risk.js";
 import { DEFAULT_RISK } from "@huper/core";
 import { StrategyRegistry } from "../src/framework/registry.js";
 import { Engine } from "../src/framework/engine.js";
-import { GridStrategy } from "../src/strategies/index.js";
 import type { Strategy, StrategyCtx } from "../src/framework/strategy.js";
 
 class FakeStrategy implements Strategy {
@@ -25,6 +24,22 @@ class FakeStrategy implements Strategy {
     }
   }
   async onStop(ctx: StrategyCtx) { this.calls.stop++; }
+}
+
+class RouteFillStrategy implements Strategy {
+  readonly name = "route-fill";
+  readonly paramsSchema = z.object({});
+  readonly cadenceMs = 0;
+  async onStart(ctx: StrategyCtx) {
+    // Resting buy limit at 99: current ask is 100 so it does NOT cross at placement
+    // (and nothing fills, so executeOrder's own reconcile creates no store row).
+    // It can only fill later when a pushed tick drops the ask to <= 99, at which point
+    // PaperExchange.sweep → routeFill is the ONLY path that can create the row.
+    await ctx.createOrder({ symbol: ctx.symbol, side: "buy", type: "limit", price: 99, size: 0.1 });
+  }
+  onTick() { return Promise.resolve(); }
+  onOrderFilled() { return Promise.resolve(); }
+  onStop() { return Promise.resolve(); }
 }
 
 describe("Engine", () => {
@@ -112,22 +127,21 @@ describe("Engine", () => {
     await engine.stopBot(bot.id, "stopped");
   });
 
-  it("reconciles an open position when a resting grid limit order fills asynchronously", async () => {
+  it("reconciles a resting limit filled by a later price move into the store via routeFill", async () => {
     await started;
-    registry.register(new GridStrategy());
-    // Fresh symbol so no exchange position exists yet: the only way this bot gets a
-    // store position row is the delayed limit fill reconciling through routeFill.
-    exchange.pushTick({ symbol: "XRP", bid: 100, ask: 100, mid: 100, timestamp: 5 });
-    const bot = await engine.createBot({ name: "GridAsyncFill", strategy: "grid", symbol: "XRP", params: { levels: 2, spacingPct: 0.01, orderSize: 0.1 } });
+    registry.register(new RouteFillStrategy());
+    // Fresh symbol, no pre-existing exchange position. onStart places a resting buy limit
+    // (99) that does NOT cross the first tick's ask (100), so nothing fills at placement and
+    // executeOrder:151's reconcile creates nothing. Only the SECOND tick (ask 98.5 <= 99)
+    // crosses it, filling via PaperExchange.sweep and reaching routeFill — the only path
+    // that can create the store row. Guarantees the delayed-sweep fill is reconciled.
+    exchange.pushTick({ symbol: "DOGE", bid: 100, ask: 100, mid: 100, timestamp: 5 });
+    const bot = await engine.createBot({ name: "RouteFillAsync", strategy: "route-fill", symbol: "DOGE", params: {} });
     await engine.startBot(bot.id);
-    await new Promise((r) => setTimeout(r, 20));
 
-    const resting = store.listOrders(bot.id);
-    expect(resting.length).toBeGreaterThanOrEqual(4);
-    expect(resting.every((o) => o.status === "open")).toBe(true);
     expect(store.listPositions(bot.id).some((p) => p.closed_at === null)).toBe(false);
 
-    exchange.pushTick({ symbol: "XRP", bid: 98.5, ask: 98.6, mid: 98.55, timestamp: 6 });
+    exchange.pushTick({ symbol: "DOGE", bid: 98, ask: 98.5, mid: 98.25, timestamp: 6 });
     await new Promise((r) => setTimeout(r, 20));
 
     const open = store.listPositions(bot.id).find((p) => p.closed_at === null);
