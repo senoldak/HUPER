@@ -222,4 +222,46 @@ describe("Engine", () => {
 
     await engine.stopBot(bot.id, "stopped");
   });
+
+  it("throttles balance refreshes in refreshMeta to at most one per 1000ms", async () => {
+    const ex = new PaperExchange({ initialBalance: 10000 });
+    let counter = 0;
+    const origBalances = ex.balances.bind(ex);
+    ex.balances = async () => { counter++; return origBalances(); };
+
+    const st = new Store(openStore(":memory:"));
+    const reg = new StrategyRegistry();
+    const noop = new (class implements Strategy {
+      readonly name = "noop-debounce";
+      readonly paramsSchema = z.object({});
+      readonly cadenceMs = 0;
+      onStart() { return Promise.resolve(); }
+      onTick() { return Promise.resolve(); }
+      onOrderFilled() { return Promise.resolve(); }
+      onStop() { return Promise.resolve(); }
+    })();
+    reg.register(noop);
+
+    const e = new Engine({ exchange: ex, store: st, risk: new RiskManager(DEFAULT_RISK), registry: reg, log: { info: () => {}, error: () => {}, warn: () => {} } });
+    await e.start();
+    const afterBoot = counter;
+    expect(afterBoot).toBe(1);
+
+    const bot = await e.createBot({ name: "Debounce", strategy: "noop-debounce", symbol: "LTC", params: {} });
+    await e.startBot(bot.id);
+
+    ex.pushTick({ symbol: "LTC", bid: 100, ask: 100, mid: 100, timestamp: 1 });
+    ex.pushTick({ symbol: "LTC", bid: 100, ask: 100, mid: 100.1, timestamp: 2 });
+    ex.pushTick({ symbol: "LTC", bid: 100, ask: 100, mid: 100.2, timestamp: 3 });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(counter).toBe(afterBoot + 1);
+
+    await new Promise((r) => setTimeout(r, 1100));
+    ex.pushTick({ symbol: "LTC", bid: 101, ask: 101, mid: 101, timestamp: 4 });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(counter).toBe(afterBoot + 2);
+
+    await e.stopBot(bot.id, "stopped");
+    await e.stop();
+  });
 });

@@ -26,6 +26,7 @@ export class Engine {
   private orderIds = new Map<string, Set<string>>();
   private recentOrders: RecentOrder[] = [];
   private unsubs: Array<() => void> = [];
+  private lastBalanceRefresh = 0;
 
   constructor(opts: EngineOptions) { this.exchange = opts.exchange; this.store = opts.store; this.risk = opts.risk; this.registry = opts.registry; this.log = opts.log; }
 
@@ -195,6 +196,9 @@ export class Engine {
   }
 
   private async refreshMeta(symbol: string): Promise<void> {
+    const now = Date.now();
+    if (now - this.lastBalanceRefresh < 1000) return;
+    this.lastBalanceRefresh = now;
     try {
       const b = await this.exchange.balances();
       if (b.length > 0) this.bal = b[0].total;
