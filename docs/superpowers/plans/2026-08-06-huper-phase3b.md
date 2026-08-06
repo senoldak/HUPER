@@ -463,7 +463,10 @@ form#new-bot input, form#new-bot select {
   background: #0b1220; color: var(--text); font-size: 14px;
 }
 #params label { margin-right: 12px; font-size: 12px; }
-#params input { width: 80px; }
+#params input {
+  width: 80px; background: #0b1220; color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px; padding: 4px 6px;
+}
 .error { color: var(--red); }
 .toast {
   position: fixed; bottom: 20px; right: 20px; background: #164e63; color: #fff;
