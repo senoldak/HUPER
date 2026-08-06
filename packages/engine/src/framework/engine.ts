@@ -183,7 +183,10 @@ export class Engine {
 
   private routeFill(order: Order): void {
     for (const runner of this.runners.values()) {
-      if (runner.hasOrder(order.id)) void runner.onOrderFilled(order).catch((e) => this.markError(runner.botId, e));
+      if (!runner.hasOrder(order.id)) continue;
+      void runner.onOrderFilled(order)
+        .catch((e) => this.markError(runner.botId, e))
+        .then(() => this.reconcilePositions(runner.botId, order.symbol).catch((e) => this.log.warn({ botId: runner.botId, symbol: order.symbol, err: (e as Error).message }, "position reconcile failed")));
     }
   }
 
@@ -194,8 +197,10 @@ export class Engine {
     } catch (e) { this.log.warn({ symbol, err: (e as Error).message }, "balances refresh failed"); }
   }
 
+  // Single-bot-per-symbol is the supported deployment; two bots on one symbol share one aggregate exchange position, so per-bot attribution is ambiguous.
   async reconcileAllPositions(): Promise<void> {
     for (const b of this.store.listBots()) {
+      if (!this.store.listOrders(b.id).some((o) => o.symbol === b.symbol)) continue;
       try { await this.reconcilePositions(b.id, b.symbol); } catch { /* best-effort */ }
     }
   }

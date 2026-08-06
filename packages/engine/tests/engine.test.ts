@@ -7,6 +7,7 @@ import { RiskManager } from "../src/risk/risk.js";
 import { DEFAULT_RISK } from "@huper/core";
 import { StrategyRegistry } from "../src/framework/registry.js";
 import { Engine } from "../src/framework/engine.js";
+import { GridStrategy } from "../src/strategies/index.js";
 import type { Strategy, StrategyCtx } from "../src/framework/strategy.js";
 
 class FakeStrategy implements Strategy {
@@ -109,5 +110,50 @@ describe("Engine", () => {
       .rejects.toThrow("exceeds per-bot position cap");
 
     await engine.stopBot(bot.id, "stopped");
+  });
+
+  it("reconciles an open position when a resting grid limit order fills asynchronously", async () => {
+    await started;
+    registry.register(new GridStrategy());
+    // Fresh symbol so no exchange position exists yet: the only way this bot gets a
+    // store position row is the delayed limit fill reconciling through routeFill.
+    exchange.pushTick({ symbol: "XRP", bid: 100, ask: 100, mid: 100, timestamp: 5 });
+    const bot = await engine.createBot({ name: "GridAsyncFill", strategy: "grid", symbol: "XRP", params: { levels: 2, spacingPct: 0.01, orderSize: 0.1 } });
+    await engine.startBot(bot.id);
+    await new Promise((r) => setTimeout(r, 20));
+
+    const resting = store.listOrders(bot.id);
+    expect(resting.length).toBeGreaterThanOrEqual(4);
+    expect(resting.every((o) => o.status === "open")).toBe(true);
+    expect(store.listPositions(bot.id).some((p) => p.closed_at === null)).toBe(false);
+
+    exchange.pushTick({ symbol: "XRP", bid: 98.5, ask: 98.6, mid: 98.55, timestamp: 6 });
+    await new Promise((r) => setTimeout(r, 20));
+
+    const open = store.listPositions(bot.id).find((p) => p.closed_at === null);
+    expect(open).toBeDefined();
+    expect(open?.side).toBe("buy");
+    expect(open?.size).toBe(0.1);
+
+    await engine.stopBot(bot.id, "stopped");
+  });
+
+  it("does not attribute a phantom position to a bot that never traded on its symbol", async () => {
+    const active = await engine.createBot({ name: "PhantomActive", strategy: "fake", symbol: "BTC", params: { threshold: 99 } });
+    const inactive = await engine.createBot({ name: "PhantomInactive", strategy: "fake", symbol: "BTC", params: { threshold: 99 } });
+    await engine.startBot(active.id);
+
+    exchange.pushTick({ symbol: "BTC", bid: 100, ask: 100, mid: 100, timestamp: 7 });
+    exchange.pushTick({ symbol: "BTC", bid: 100, ask: 100, mid: 101, timestamp: 8 });
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(store.listOrders(inactive.id)).toEqual([]);
+    expect(store.listPositions(active.id).some((p) => p.closed_at === null)).toBe(true);
+
+    await engine.reconcileAllPositions();
+
+    expect(store.listPositions(inactive.id)).toEqual([]);
+
+    await engine.stopBot(active.id, "stopped");
   });
 });
