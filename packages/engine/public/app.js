@@ -222,5 +222,7 @@ async function showDetail(id) {
 
 $("#back").addEventListener("click", () => { detailId = null; document.querySelectorAll(".view").forEach((v) => v.classList.add("hidden")); $("#overview").classList.remove("hidden"); poll(); });
 
+$("#watch-add").addEventListener("click", addSymbol);
+
 poll();
 setInterval(poll, 2000);
