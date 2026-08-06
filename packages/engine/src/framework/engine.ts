@@ -182,6 +182,9 @@ export class Engine {
   }
 
   private routeFill(order: Order): void {
+    if (order.status === "filled") {
+      this.store.updateOrder(order.id, { status: "filled", filled_size: order.filledSize, avg_price: order.avgFillPrice });
+    }
     for (const runner of this.runners.values()) {
       if (!runner.hasOrder(order.id)) continue;
       void runner.onOrderFilled(order)

@@ -9,6 +9,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import {
   Side,
   OrderType,
+  OrderStatus,
   type ExchangeAdapter,
   type NewOrder,
   type Order,
@@ -71,6 +72,17 @@ export class LiveExchange implements ExchangeAdapter {
       }
     });
     this.activeSubs.add(sub);
+
+    const fsub = await this.subs.userFills({ user: this.wallet.address }, (fevent) => {
+      for (const f of fevent.fills ?? []) {
+        const pending = this.ordersPending.get(String(f.oid));
+        if (!pending) continue; // market Ioc already resolved, or foreign order
+        const filled: Order = { ...pending, status: OrderStatus.Filled, filledSize: parseFloat(f.sz), avgFillPrice: parseFloat(f.px), filledAt: f.time };
+        this.ordersPending.delete(String(f.oid));
+        for (const cb of this.fillCbs) cb(filled);
+      }
+    });
+    this.activeSubs.add(fsub);
   }
 
   async disconnect(): Promise<void> {

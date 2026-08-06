@@ -149,6 +149,11 @@ describe("Engine", () => {
     expect(open?.side).toBe("buy");
     expect(open?.size).toBe(0.1);
 
+    const resting = store.listOrders(bot.id).find((o) => o.side === "buy");
+    expect(resting).toBeDefined();
+    expect(resting?.status).toBe("filled");
+    expect(resting?.filled_size).toBe(0.1);
+
     await engine.stopBot(bot.id, "stopped");
   });
 
