@@ -36,8 +36,17 @@ describe("Store", () => {
     expect(store.listPositions("b1")[0]?.realized_pnl).toBe(2.5);
   });
 
-  it("deletes a bot", () => {
+  it("deletes a bot and cascades its child rows", () => {
+    store.createBotRun({ id: "r_c", bot_id: "b1", mode: "paper", started_at: 5, stopped_at: null, stop_reason: null });
+    store.createOrder({ id: "o_c", bot_id: "b1", exchange_id: null, symbol: "BTC", side: "buy", price: 100, size: 0.1, status: "open", filled_size: 0, avg_price: null, created_at: 6, updated_at: 6 });
+    store.createPosition({ id: "p_c", bot_id: "b1", symbol: "BTC", side: "buy", size: 0.1, avg_entry: 100, mark_price: null, realized_pnl: 0, opened_at: 7, closed_at: null });
+    store.appendEquity({ id: "e_c", botId: "b1", ts: 8, value: 1000 });
+
     store.deleteBot("b1");
     expect(store.getBot("b1")).toBeUndefined();
+    expect(store.listRuns("b1")).toHaveLength(0);
+    expect(store.listOrders("b1")).toHaveLength(0);
+    expect(store.listPositions("b1")).toHaveLength(0);
+    expect((db.prepare(`SELECT COUNT(*) c FROM equity`).get() as { c: number }).c).toBe(0);
   });
 });

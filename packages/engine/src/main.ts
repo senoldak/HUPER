@@ -13,6 +13,7 @@ import { buildRegistry } from "./strategies/index.js";
 import { MarketDataFeed } from "./market/feed.js";
 import { buildApp } from "./server.js";
 import { EmergencyStop } from "./emergency.js";
+import { recoverStaleBots } from "./recover.js";
 import type { ExchangeAdapter } from "@huper/core";
 
 dotenv.config({ path: fileURLToPath(new URL("../../../.env", import.meta.url)) });
@@ -24,6 +25,7 @@ async function main() {
   const dbPath = process.env.HUPER_DB_PATH ?? "data/huper.db";
   if (dbPath !== ":memory:") mkdirSync(dirname(dbPath), { recursive: true });
   const store = new Store(openStore(dbPath));
+  recoverStaleBots(store, log);
   const exchange: ExchangeAdapter = cfg.mode === "paper"
     ? new PaperExchange({ initialBalance: cfg.paperBalance })
     : new LiveExchange({ privateKey: cfg.privateKey!, rpcUrl: cfg.rpcUrl, wsUrl: cfg.wsUrl });

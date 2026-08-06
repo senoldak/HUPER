@@ -83,6 +83,10 @@ export class Store {
   }
 
   deleteBot(id: string): void {
+    this.db.prepare(`DELETE FROM runs WHERE bot_id = ?`).run(id);
+    this.db.prepare(`DELETE FROM orders WHERE bot_id = ?`).run(id);
+    this.db.prepare(`DELETE FROM positions WHERE bot_id = ?`).run(id);
+    this.db.prepare(`DELETE FROM equity WHERE bot_id = ?`).run(id);
     this.db.prepare(`DELETE FROM bots WHERE id = ?`).run(id);
   }
 }
