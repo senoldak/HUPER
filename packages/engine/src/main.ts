@@ -35,6 +35,11 @@ async function main() {
   const engine = new Engine({ exchange, store, risk: new RiskManager(DEFAULT_RISK), registry: buildRegistry(), log });
   await engine.start();
 
+  const EQUITY_INTERVAL_MS = 5000;
+  const equityTimer = setInterval(() => {
+    void engine.recordEquity().catch((e) => log.warn({ err: (e as Error).message }, "equity record failed"));
+  }, EQUITY_INTERVAL_MS);
+
   let feed: MarketDataFeed | undefined;
   if (cfg.mode === "paper") {
     feed = new MarketDataFeed(cfg.wsUrl);
@@ -49,6 +54,7 @@ async function main() {
   log.info({ port }, "engine listening");
 
   const stop = async () => {
+    clearInterval(equityTimer);
     await engine.stop();
     if (feed) await feed.disconnect();
     await exchange.disconnect();
