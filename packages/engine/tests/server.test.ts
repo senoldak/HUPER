@@ -113,4 +113,10 @@ describe("server", () => {
     const res = await app.inject({ method: "PUT", url: "/watchlist", payload: { symbols: "BTC" } });
     expect(res.statusCode).toBe(400);
   });
+
+  it("panel app.js defines a default watchlist", async () => {
+    const res = await app.inject({ method: "GET", url: "/app.js" });
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toContain("DEFAULT_WATCHLIST");
+  });
 });

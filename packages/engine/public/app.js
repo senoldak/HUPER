@@ -5,6 +5,7 @@ function escapeHtml(v) {
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
+const DEFAULT_WATCHLIST = ["BTC", "ETH", "SOL", "DOGE", "LINK", "AVAX", "XRP", "BNB"];
 const paramsDefs = {
   grid: { levels: "number", spacingPct: "number", orderSize: "number" },
   dca: { stepPct: "number", takeProfitPct: "number", totalSteps: "number", baseSize: "number", sizeMultiplier: "number" },
@@ -61,6 +62,33 @@ async function api(path, opts) {
   return res.json();
 }
 
+let watchlist = [];
+async function loadWatchlist() {
+  const res = await api("/watchlist");
+  watchlist = res.symbols && res.symbols.length ? res.symbols : DEFAULT_WATCHLIST;
+  if (!res.symbols || !res.symbols.length) await api("/watchlist", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ symbols: watchlist }) });
+  return watchlist;
+}
+async function addSymbol() {
+  const raw = $("#watch-input").value.trim().toUpperCase();
+  if (!raw) return;
+  if (watchlist.includes(raw)) { toast(`${raw} zaten listede`); return; }
+  watchlist.push(raw);
+  try { await saveWatchlist(); } catch (e) { watchlist.pop(); toast(e.message); return; }
+  $("#watch-input").value = "";
+  toast(`${raw} eklendi`);
+  poll();
+}
+async function removeSymbol(sym) {
+  watchlist = watchlist.filter((s) => s !== sym);
+  try { await saveWatchlist(); } catch (e) { toast(e.message); return; }
+  toast(`${sym} kaldırıldı`);
+  poll();
+}
+async function saveWatchlist() {
+  await api("/watchlist", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ symbols: watchlist }) });
+}
+
 async function action(id, verb) {
   try { await api(`/bots/${id}/${verb}`, { method: "POST" }); poll(); }
   catch (e) { toast(e.message); }
@@ -102,8 +130,22 @@ function setTable(id, rows, columns, cell) {
   }
 }
 
+function emptyRow(tbodyId, columns, message) {
+  const tbody = document.querySelector(`#${tbodyId} tbody`);
+  if (tbody && tbody.childElementCount === 0) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = columns.length;
+    td.className = "empty";
+    td.textContent = message;
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+  }
+}
+
 async function poll() {
   try {
+    if (watchlist.length === 0) await loadWatchlist();
     const [balances, positions, bots, equity] = await Promise.all([
       api("/balances"), api("/positions"), api("/bots"), api("/equity?limit=200"),
     ]);
@@ -114,11 +156,19 @@ async function poll() {
     setTable("positions", positions, ["symbol", "side", "size", "avgEntry", "markPrice"],
       (r, c) => escapeHtml(r[c] ?? "—"));
 
-    // Prices: unique symbols from bots + positions
-    const syms = [...new Set([...positions.map((p) => p.symbol), ...bots.map((b) => b.symbol)])];
+    // Prices: unique symbols from watchlist + bots + positions
+    const syms = [...new Set([...watchlist, ...positions.map((p) => p.symbol), ...bots.map((b) => b.symbol)])];
     const ticks = await Promise.all(syms.map((s) => api(`/ticks/${s}`)));
-    setTable("prices", syms.map((s, i) => ({ symbol: s, tick: ticks[i].tick })), ["symbol", "bid", "ask", "mid"],
-      (r, c) => c === "symbol" ? escapeHtml(r.symbol) : (r.tick ? Number(r.tick[c]).toFixed(2) : "—"));
+    setTable("prices", syms.map((s, i) => ({ symbol: s, tick: ticks[i].tick })), ["symbol", "bid", "ask", "mid", ""],
+      (r, c) => {
+        if (c === "") return `<button data-rm="${escapeHtml(r.symbol)}">Kaldır</button>`;
+        if (c === "symbol") return escapeHtml(r.symbol);
+        return r.tick ? Number(r.tick[c]).toFixed(2) : "—";
+      });
+
+    document.querySelectorAll("#prices [data-rm]").forEach((btn) => {
+      btn.addEventListener("click", () => removeSymbol(btn.dataset.rm));
+    });
 
     setTable("bots", bots, ["name", "strategy", "symbol", "status", "actions"],
       (r, c) => {
@@ -144,6 +194,9 @@ async function poll() {
     });
 
     if (detailId) await showDetail(detailId);
+    emptyRow("positions", ["symbol", "side", "size", "avgEntry", "markPrice"], "Henüz açık pozisyon yok");
+    emptyRow("prices", ["symbol", "bid", "ask", "mid", ""], "Sembol eklemek için yukarıdaki input'u kullanın");
+    emptyRow("bots", ["name", "strategy", "symbol", "status", "actions"], "Bot eklemek için yeni bot formunu kullanın");
   } catch { /* silent — next poll retries */ }
 }
 
@@ -160,6 +213,9 @@ async function showDetail(id) {
       (r, c) => (c === "closed_at" ? escapeHtml(r[c] ? new Date(r[c]).toLocaleString() : "açık") : escapeHtml(r[c] ?? "—")));
     setTable("detail-runs", d.runs || [], ["mode", "started_at", "stopped_at", "stop_reason"],
       (r, c) => (c === "started_at" || c === "stopped_at") ? escapeHtml(r[c] ? new Date(r[c]).toLocaleString() : "—") : escapeHtml(r[c] ?? "—"));
+    emptyRow("detail-orders", ["id", "side", "price", "size", "status", "filled_size"], "Kayıt yok");
+    emptyRow("detail-positions", ["symbol", "side", "size", "avg_entry", "closed_at"], "Kayıt yok");
+    emptyRow("detail-runs", ["mode", "started_at", "stopped_at", "stop_reason"], "Kayıt yok");
   } catch (e) { toast(e.message); }
 }
 
