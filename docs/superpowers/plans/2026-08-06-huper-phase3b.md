@@ -518,6 +518,96 @@ Expected: 0 typecheck hatası; core 7/7 + engine 65/65 test geçer.
 7. XSS regresyon: ismi `<img src=x onerror=alert(1)>` olan bot oluştur → listede metin olarak görünür.
 8. Kapat: Ctrl+C ile engine'i durdur.
 
+---
+
+### Final Review Fixes (final whole-branch review bulguları — C1 + I1)
+
+Final whole-branch review (0fac127..HEAD) iki bulgu döndü; plan aşağıdaki şekilde değiştirilir. Bu bölüm, Task 1-3'teki ilgili adımların yerini alır.
+
+**C1 — Boş watchlist kalıcı olamıyor (re-seed).** `poll()` her turda `watchlist.length === 0` görünce `loadWatchlist()` çağırır (app.js:149); o da boş listeyi `DEFAULT_WATCHLIST` ile değiştirip geri PUT eder (app.js:68-69). Son sembol kaldırılınca boş-durum satırı asla render edilemez ve silinen liste geri gelir. "Hiç kaydedilmemiş" ile "bilinçli boşaltılmış" ayrıştırılır:
+
+- Task 1 (store): `getWatchlist()` imzası DEĞİŞMEZ (yoksa `[]`); yeni metot eklenir:
+
+```ts
+hasWatchlist(): boolean {
+  return this.db.prepare(`SELECT 1 FROM watchlist WHERE id = 'default'`).get() !== undefined;
+}
+```
+
+`packages/engine/tests/store.test.ts` — `setWatchlist` testinden sonra ekle:
+
+```ts
+it("hasWatchlist is false before save and true after", () => {
+  const s2 = new Store(openStore(":memory:"));
+  expect(s2.hasWatchlist()).toBe(false);
+  s2.setWatchlist([]);
+  expect(s2.hasWatchlist()).toBe(true);
+});
+```
+
+- Task 2 (server): `GET /watchlist` `persisted` bayrağı döner; `PUT /watchlist` sembol doğrulaması + dizi limiti alır:
+
+```ts
+app.get("/watchlist", async () => ({ symbols: opts.store.getWatchlist(), persisted: opts.store.hasWatchlist() }));
+
+app.put<{ Body: { symbols?: unknown } }>("/watchlist", async (req, reply) => {
+  const raw = req.body?.symbols;
+  const valid = (s: unknown): s is string => typeof s === "string" && /^[A-Z0-9.\-]{1,20}$/.test(s);
+  if (!Array.isArray(raw) || raw.length > 200 || !raw.every(valid)) {
+    return reply.code(400).send({ error: "symbols must be an array of 1-20 char [A-Z0-9.-] tickers, max 200" });
+  }
+  opts.store.setWatchlist(raw);
+  return { ok: true };
+});
+```
+
+`packages/engine/tests/server.test.ts` — `setWatchlist` mevcut testlerden sonra ekle:
+
+```ts
+it("put watchlist rejects invalid symbol characters", async () => {
+  const res = await app.inject({ method: "PUT", url: "/watchlist", payload: { symbols: ["BT/C"] } });
+  expect(res.statusCode).toBe(400);
+});
+
+it("put watchlist rejects non-string elements", async () => {
+  const res = await app.inject({ method: "PUT", url: "/watchlist", payload: { symbols: ["BTC", 123] } });
+  expect(res.statusCode).toBe(400);
+});
+
+it("put watchlist rejects overlong lists", async () => {
+  const res = await app.inject({ method: "PUT", url: "/watchlist", payload: { symbols: Array(201).fill("BTC") } });
+  expect(res.statusCode).toBe(400);
+});
+
+it("get watchlist reports persisted flag", async () => {
+  await app.inject({ method: "PUT", url: "/watchlist", payload: { symbols: [] } });
+  const res = await app.inject({ method: "GET", url: "/watchlist" });
+  expect(res.json().symbols).toEqual([]);
+  expect(res.json().persisted).toBe(true);
+});
+```
+
+- Task 3 (app.js): tek seferlik yükleme + seed yalnızca `persisted === false` iken:
+
+```js
+let watchlistLoaded = false;
+async function loadWatchlist() {
+  const res = await api("/watchlist");
+  watchlistLoaded = true;
+  watchlist = res.persisted ? res.symbols : DEFAULT_WATCHLIST;
+  if (!res.persisted) await api("/watchlist", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ symbols: watchlist }) });
+  return watchlist;
+}
+```
+
+`poll()` içindeki `if (watchlist.length === 0) await loadWatchlist();` satırı `if (!watchlistLoaded) await loadWatchlist();` olur. `addSymbol`'a istemci doğrulaması eklenir (append edilecek `raw` kontrolü — mevcut `if (!raw) return;`'in ardından):
+
+```js
+if (!/^[A-Z0-9.\-]{1,20}$/.test(raw)) { toast("Geçersiz sembol"); return; }
+```
+
+**I1 — Sembol girişi `/ticks/${s}` yoluna ve 2 sn'lik fan-out'a akıyor.** C1'in PUT regex'i (1-20 karakter, `[A-Z0-9.-]`) + 200 eleman limiti yol manipülasyonunu ve fan-out aşırılığını kapatır; `addSymbol` istemci tarafında aynı regex ile erken geri bildirim verir.
+
 ## Task Order Rationale
 
 1. **Task 1 (store)** — kalıcılık katmanı, en altta; izole test edilebilir.
