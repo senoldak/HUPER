@@ -32,7 +32,7 @@
 - Consumes: mevcut `openStore(path)` (db.ts), `Store` sınıfı.
 - Produces: `Store.getWatchlist(): string[]` (satır yoksa `[]`), `Store.setWatchlist(symbols: string[]): void` (upsert). Task 2 server bunları kullanır.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `packages/engine/tests/store.test.ts` — `describe("Store", ...)` bloğu İÇİNE, son `it`'ten sonra aynı girintide ekle:
 
@@ -49,12 +49,12 @@ it("setWatchlist persists and getWatchlist reads back", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npm test -w @huper/engine -- store.test.ts`
 Expected: FAIL — `store.getWatchlist is not a function` (2 failed).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `packages/engine/src/store/db.ts` — `db.exec(...)` bloğuna, `equity` tablosundan SONRA, indexlerden ÖNCE satır ekle:
 
@@ -83,7 +83,7 @@ setWatchlist(symbols: string[]): void {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -w @huper/engine -- store.test.ts`
 Expected: PASS — mevcut 6 + yeni 2 test.
@@ -94,7 +94,7 @@ Expected: 0 hata.
 Run: `npm test -w @huper/engine`
 Expected: tüm testler geçer (10 dosya, 61 test).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/engine/src/store/db.ts packages/engine/src/store/store.ts packages/engine/tests/store.test.ts
@@ -113,7 +113,7 @@ git commit -m "feat(store): persist watchlist symbols"
 - Consumes: `Store.getWatchlist(): string[]`, `Store.setWatchlist(symbols: string[]): void` (Task 1).
 - Produces: `GET /watchlist` → `{ symbols: string[] }`; `PUT /watchlist` body `{ symbols: string[] }` → 200 `{ ok: true }`; geçersiz body → 400 `{ error }`. Task 3 panel bunları kullanır.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `packages/engine/tests/server.test.ts` — `describe("server", ...)` bloğu İÇİNE, son `it`'ten sonra aynı girintide ekle:
 
@@ -139,12 +139,12 @@ it("put watchlist rejects non-array body", async () => {
 
 Not: `buildApp` şu an `store`'u almıyor — `app` içinden Store'a erişmek için `buildApp` imzasına `store` eklenir (aşağıdaki adım 3) ve test `buildApp({ exchange, engine, store })` ile güncellenir.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npm test -w @huper/engine -- server.test.ts`
 Expected: FAIL — `buildApp` `store` tanımıyor + 3 yeni test fail (typecheck hatası veya 404). Test dosyasındaki `buildApp({ exchange, engine })` çağrısı da güncellenecek.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `packages/engine/src/server.ts`:
 
@@ -177,7 +177,7 @@ app.put<{ Body: { symbols?: unknown } }>("/watchlist", async (req, reply) => {
 app = buildApp({ exchange, engine, store });
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -w @huper/engine -- server.test.ts`
 Expected: PASS — mevcut 9 + yeni 3 test (12).
@@ -188,7 +188,7 @@ Expected: 0 hata.
 Run: `npm test -w @huper/engine`
 Expected: tüm testler geçer (10 dosya, 64 test).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/engine/src/server.ts packages/engine/tests/server.test.ts
@@ -207,7 +207,7 @@ git commit -m "feat(server): add watchlist endpoints"
 - Consumes: `GET /watchlist`, `PUT /watchlist` (Task 2).
 - Produces: `DEFAULT_WATCHLIST` sabiti, `loadWatchlist()`/`addSymbol()`/`removeSymbol()`, `poll()`'un güncel `syms` mantığı, boş-durum satırları. Task 4 HTML/style bu isimlere bağlanır.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `packages/engine/tests/server.test.ts` — `describe("server", ...)` bloğu İÇİNE ekle:
 
@@ -219,12 +219,12 @@ it("panel app.js defines a default watchlist", async () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm test -w @huper/engine -- server.test.ts`
 Expected: FAIL — `DEFAULT_WATCHLIST` app.js'te yok.
 
-- [ ] **Step 3: Implement in `app.js`**
+- [x] **Step 3: Implement in `app.js`**
 
 `packages/engine/public/app.js`:
 
@@ -340,7 +340,7 @@ async function poll() {
     const [balances, positions, bots, equity] = await Promise.all([...]);
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -w @huper/engine -- server.test.ts`
 Expected: PASS.
@@ -351,7 +351,7 @@ Expected: 0 hata.
 Run: `npm test -w @huper/engine`
 Expected: tüm testler geçer (10 dosya, 65 test).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/engine/public/app.js packages/engine/tests/server.test.ts
@@ -370,7 +370,7 @@ git commit -m "feat(web): editable watchlist and empty-state rows"
 - Consumes: Task 3'ün `#watch-input`, `addSymbol`, `removeSymbol`, `.empty`, `data-rm` isimleri.
 - Produces: görünüm/HTML değişiklikleri (test gerektirmez — doğrulama typecheck + manuel smoke).
 
-- [ ] **Step 1: Add watchlist widget to `index.html`**
+- [x] **Step 1: Add watchlist widget to `index.html`**
 
 `packages/engine/public/index.html` — "Fiyatlar" kartında, tablo başlığından ÖNCE widget:
 
@@ -396,7 +396,7 @@ git commit -m "feat(web): editable watchlist and empty-state rows"
 $("#watch-add").addEventListener("click", addSymbol);
 ```
 
-- [ ] **Step 2: Add empty-state style to `style.css`**
+- [x] **Step 2: Add empty-state style to `style.css`**
 
 `packages/engine/public/style.css` — mevcut dosyayı aşağıdaki TAM içerikle değiştir (yeniden tasarım + `.empty` + `.watch-controls`):
 
@@ -476,7 +476,7 @@ form#new-bot input, form#new-bot select {
 @media (max-width: 720px) { .cards { grid-template-columns: 1fr; } }
 ```
 
-- [ ] **Step 3: Verify no code impact**
+- [x] **Step 3: Verify no code impact**
 
 Run: `npm run typecheck`
 Expected: 0 hata (kod etkilenmez).
@@ -484,7 +484,7 @@ Expected: 0 hata (kod etkilenmez).
 Run: `npm test -w @huper/engine`
 Expected: tüm testler geçer (10 dosya, 65 test — değişiklik yok).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add packages/engine/public/index.html packages/engine/public/style.css packages/engine/public/app.js
@@ -495,7 +495,7 @@ git commit -m "feat(web): redesign panel with watchlist widget and empty states"
 
 ### Finalization
 
-- [ ] **Full verification**
+- [x] **Full verification**
 
 ```bash
 npm run typecheck
@@ -504,7 +504,7 @@ npm test
 
 Expected: 0 typecheck hatası; core 7/7 + engine 65/65 test geçer.
 
-- [ ] **Manual smoke test**
+- [x] **Manual smoke test**
 
 1. Kapat: port 3001'de stale process varsa durdur.
 2. Başlat:
