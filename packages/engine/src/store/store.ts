@@ -1,5 +1,5 @@
 import type { Database } from "better-sqlite3";
-import type { BotRow, RunRow, PersistedOrder, PersistedPosition } from "./types.js";
+import type { BotRow, RunRow, PersistedOrder, PersistedPosition, EquityRow } from "./types.js";
 
 export class Store {
   constructor(private db: Database) {}
@@ -80,6 +80,16 @@ export class Store {
 
   appendEquity(r: { id: string; botId: string | null; ts: number; value: number }): void {
     this.db.prepare(`INSERT INTO equity (id,bot_id,ts,value) VALUES (?,?,?,?)`).run(r.id, r.botId, r.ts, r.value);
+  }
+
+  listEquity(botId?: string, limit?: number): EquityRow[] {
+    const where = botId === undefined ? "bot_id IS NULL" : "bot_id = ?";
+    const params: (string | number)[] = botId === undefined ? [] : [botId];
+    const sql = `SELECT * FROM equity WHERE ${where} ORDER BY ts DESC${limit != null ? " LIMIT ?" : ""}`;
+    const rows = (limit != null
+      ? this.db.prepare(sql).all(...params, limit)
+      : this.db.prepare(sql).all(...params)) as EquityRow[];
+    return rows.reverse(); // oldest-first for charting
   }
 
   deleteBot(id: string): void {

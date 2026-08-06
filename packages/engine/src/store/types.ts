@@ -17,3 +17,6 @@ export interface PersistedPosition {
   avg_entry: number; mark_price: number | null; realized_pnl: number;
   opened_at: number; closed_at: number | null;
 }
+export interface EquityRow {
+  id: string; bot_id: string | null; ts: number; value: number;
+}

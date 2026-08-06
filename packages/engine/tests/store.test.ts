@@ -49,4 +49,22 @@ describe("Store", () => {
     expect(store.listPositions("b1")).toHaveLength(0);
     expect((db.prepare(`SELECT COUNT(*) c FROM equity`).get() as { c: number }).c).toBe(0);
   });
+
+  it("listEquity filters global rows and applies limit oldest-first", () => {
+    store.appendEquity({ id: "e1", botId: null, ts: 100, value: 100 });
+    store.appendEquity({ id: "e2", botId: null, ts: 200, value: 200 });
+    store.appendEquity({ id: "e3", botId: "b9", ts: 150, value: 999 });
+
+    const global = store.listEquity();
+    expect(global.filter((r) => r.id === "e1").length).toBe(1);
+    expect(global.filter((r) => r.id === "e2").length).toBe(1);
+    expect(global.filter((r) => r.id === "e3").length).toBe(0); // bot-owned rows excluded from global
+
+    const top = store.listEquity(undefined, 2);
+    expect(top.length).toBeLessThanOrEqual(2);
+    expect(top[top.length - 1].id).toBe("e2"); // most recent kept, oldest-first order
+
+    const botRows = store.listEquity("b9");
+    expect(botRows.map((r) => r.id)).toEqual(["e3"]);
+  });
 });
