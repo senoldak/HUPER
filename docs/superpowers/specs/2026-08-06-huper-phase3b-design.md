@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS watchlist (
 
 - `store.test.ts` +2: `getWatchlist` boşken `[]`; `setWatchlist` yazar + okur.
 - `server.test.ts` +2: `GET /watchlist` → 200 array; `PUT` → ok + sonraki GET aynısı; geçersiz body → 400.
-- Panel testi (string assertion): `app.js` `DEFAULT_WATCHLIST` içerir (server.test.ts veya yeni — mevcut desen).
+- Panel testi (string assertion, `server.test.ts`): `GET /app.js` body `DEFAULT_WATCHLIST` içerir.
 - Doğrulama: `npm run typecheck` 0 hata; `npm test` core + engine; manuel smoke.
 
 ## 6. Değişen Dosyalar
