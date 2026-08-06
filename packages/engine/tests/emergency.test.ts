@@ -18,6 +18,9 @@ describe("EmergencyStop", () => {
     const bot = await engine.createBot({ name: "D", strategy: "dca", symbol: "BTC", params: { stepPct: 0.02, takeProfitPct: 0.1, totalSteps: 2, baseSize: 0.1, sizeMultiplier: 2 } });
     await engine.startBot(bot.id);
     await new Promise((r) => setTimeout(r, 100));
+    const bot2 = await engine.createBot({ name: "D2", strategy: "dca", symbol: "BTC", params: { stepPct: 0.02, takeProfitPct: 0.1, totalSteps: 2, baseSize: 0.05, sizeMultiplier: 2 } });
+    await engine.startBot(bot2.id);
+    await new Promise((r) => setTimeout(r, 100));
     exchange.pushTick({ symbol: "BTC", bid: 100, ask: 100, mid: 100, timestamp: 1 });
     await new Promise((r) => setTimeout(r, 100));
 
@@ -27,5 +30,6 @@ describe("EmergencyStop", () => {
     expect(result.closedPositions).toBeGreaterThan(0);
     expect((await exchange.openPositions())).toHaveLength(0);
     expect(store.getBot(bot.id)?.status).toBe("stopped");
+    expect(store.getBot(bot2.id)?.status).toBe("stopped");
   });
 });

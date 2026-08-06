@@ -6,8 +6,8 @@ export class EmergencyStop {
   constructor(private engine: Engine, private exchange: ExchangeAdapter) {}
 
   async run(): Promise<{ stoppedBots: number; closedPositions: number }> {
-    const positions = await this.exchange.openPositions();
     const stoppedBots = await this.engine.stopAll("emergency");
+    const positions = await this.exchange.openPositions();
     let closed = 0;
     for (const p of positions) {
       try {

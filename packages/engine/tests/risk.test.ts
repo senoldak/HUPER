@@ -42,4 +42,19 @@ describe("RiskManager", () => {
     const r = new RiskManager(base).validate({ ...attempt, kind: "market", price: null, reduceOnly: true }, snap({ lastPrice: 100 }));
     expect(r).toEqual({ ok: true });
   });
+
+  it("allows reduce-only market close past position caps", () => {
+    const r = new RiskManager(base).validate({ ...attempt, kind: "market", price: null, reduceOnly: true, size: 5 }, snap({ botPositionNotional: 4000, globalPositionNotional: 4000 }));
+    expect(r).toEqual({ ok: true });
+  });
+
+  it("still applies order-notional cap to reduce-only", () => {
+    const r = new RiskManager(base).validate({ ...attempt, kind: "market", price: null, reduceOnly: true, size: 1000 }, snap({ balance: 1000 }));
+    expect(r).toEqual({ ok: false, reason: "exceeds order notional cap" });
+  });
+
+  it("still applies size-minimum to reduce-only", () => {
+    const r = new RiskManager(base).validate({ ...attempt, kind: "market", price: null, reduceOnly: true, size: 0.0001 }, snap());
+    expect(r).toEqual({ ok: false, reason: "size below minimum" });
+  });
 });

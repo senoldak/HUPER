@@ -19,8 +19,10 @@ export class RiskManager {
     const notional = ref * Math.abs(a.size);
 
     if (notional > s.balance * this.cfg.maxOrderNotionalPct) return { ok: false, reason: "exceeds order notional cap" };
-    if (s.botPositionNotional + notional > s.balance * this.cfg.perBotMaxPositionPct) return { ok: false, reason: "exceeds per-bot position cap" };
-    if (s.globalPositionNotional + notional > s.balance * this.cfg.globalMaxPositionPct) return { ok: false, reason: "exceeds global position cap" };
+    if (!a.reduceOnly) {
+      if (s.botPositionNotional + notional > s.balance * this.cfg.perBotMaxPositionPct) return { ok: false, reason: "exceeds per-bot position cap" };
+      if (s.globalPositionNotional + notional > s.balance * this.cfg.globalMaxPositionPct) return { ok: false, reason: "exceeds global position cap" };
+    }
 
     if (a.kind === "limit" && !a.reduceOnly && a.price != null && s.lastPrice != null) {
       const drift = Math.abs(a.price - s.lastPrice) / s.lastPrice;
