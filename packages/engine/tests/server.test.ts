@@ -114,6 +114,28 @@ describe("server", () => {
     expect(res.statusCode).toBe(400);
   });
 
+  it("put watchlist rejects invalid symbol characters", async () => {
+    const res = await app.inject({ method: "PUT", url: "/watchlist", payload: { symbols: ["BT/C"] } });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("put watchlist rejects non-string elements", async () => {
+    const res = await app.inject({ method: "PUT", url: "/watchlist", payload: { symbols: ["BTC", 123] } });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("put watchlist rejects overlong lists", async () => {
+    const res = await app.inject({ method: "PUT", url: "/watchlist", payload: { symbols: Array(201).fill("BTC") } });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("get watchlist reports persisted flag", async () => {
+    await app.inject({ method: "PUT", url: "/watchlist", payload: { symbols: [] } });
+    const res = await app.inject({ method: "GET", url: "/watchlist" });
+    expect(res.json().symbols).toEqual([]);
+    expect(res.json().persisted).toBe(true);
+  });
+
   it("panel app.js defines a default watchlist", async () => {
     const res = await app.inject({ method: "GET", url: "/app.js" });
     expect(res.statusCode).toBe(200);

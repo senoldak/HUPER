@@ -73,14 +73,15 @@ export function buildApp(opts: { exchange: ExchangeAdapter; engine: Engine; stor
     return opts.engine.listEquity(limit);
   });
 
-  app.get("/watchlist", async () => ({ symbols: opts.store.getWatchlist() }));
+  app.get("/watchlist", async () => ({ symbols: opts.store.getWatchlist(), persisted: opts.store.hasWatchlist() }));
 
   app.put<{ Body: { symbols?: unknown } }>("/watchlist", async (req, reply) => {
     const raw = req.body?.symbols;
-    if (!Array.isArray(raw) || raw.some((s) => typeof s !== "string")) {
-      return reply.code(400).send({ error: "symbols must be an array of strings" });
+    const valid = (s: unknown): s is string => typeof s === "string" && /^[A-Z0-9.\-]{1,20}$/.test(s);
+    if (!Array.isArray(raw) || raw.length > 200 || !raw.every(valid)) {
+      return reply.code(400).send({ error: "symbols must be an array of 1-20 char [A-Z0-9.-] tickers, max 200" });
     }
-    opts.store.setWatchlist(raw as string[]);
+    opts.store.setWatchlist(raw);
     return { ok: true };
   });
 

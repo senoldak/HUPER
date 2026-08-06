@@ -63,15 +63,18 @@ async function api(path, opts) {
 }
 
 let watchlist = [];
+let watchlistLoaded = false;
 async function loadWatchlist() {
   const res = await api("/watchlist");
-  watchlist = res.symbols && res.symbols.length ? res.symbols : DEFAULT_WATCHLIST;
-  if (!res.symbols || !res.symbols.length) await api("/watchlist", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ symbols: watchlist }) });
+  watchlistLoaded = true;
+  watchlist = res.persisted ? res.symbols : DEFAULT_WATCHLIST;
+  if (!res.persisted) await api("/watchlist", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ symbols: watchlist }) });
   return watchlist;
 }
 async function addSymbol() {
   const raw = $("#watch-input").value.trim().toUpperCase();
   if (!raw) return;
+  if (!/^[A-Z0-9.\-]{1,20}$/.test(raw)) { toast("Geçersiz sembol"); return; }
   if (watchlist.includes(raw)) { toast(`${raw} zaten listede`); return; }
   watchlist.push(raw);
   try { await saveWatchlist(); } catch (e) { watchlist.pop(); toast(e.message); return; }
@@ -146,7 +149,7 @@ function emptyRow(tbodyId, columns, message) {
 
 async function poll() {
   try {
-    if (watchlist.length === 0) await loadWatchlist();
+    if (!watchlistLoaded) await loadWatchlist();
     const [balances, positions, bots, equity] = await Promise.all([
       api("/balances"), api("/positions"), api("/bots"), api("/equity?limit=200"),
     ]);

@@ -98,6 +98,10 @@ export class Store {
     return JSON.parse(row.symbols) as string[];
   }
 
+  hasWatchlist(): boolean {
+    return this.db.prepare(`SELECT 1 FROM watchlist WHERE id = 'default'`).get() !== undefined;
+  }
+
   setWatchlist(symbols: string[]): void {
     this.db.prepare(
       `INSERT INTO watchlist (id, symbols, updated_at) VALUES ('default', ?, ?)

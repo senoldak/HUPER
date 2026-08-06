@@ -78,4 +78,11 @@ describe("Store", () => {
     store.setWatchlist(["XRP"]);
     expect(store.getWatchlist()).toEqual(["XRP"]);
   });
+
+  it("hasWatchlist is false before save and true after", () => {
+    const s2 = new Store(openStore(":memory:"));
+    expect(s2.hasWatchlist()).toBe(false);
+    s2.setWatchlist([]);
+    expect(s2.hasWatchlist()).toBe(true);
+  });
 });
