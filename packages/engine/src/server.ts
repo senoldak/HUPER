@@ -6,8 +6,9 @@ import type { FastifyInstance } from "fastify";
 import type { ExchangeAdapter, NewOrder } from "@huper/core";
 import type { Engine } from "./framework/engine.js";
 import { EmergencyStop } from "./emergency.js";
+import type { Store } from "./store/store.js";
 
-export function buildApp(opts: { exchange: ExchangeAdapter; engine: Engine }): FastifyInstance {
+export function buildApp(opts: { exchange: ExchangeAdapter; engine: Engine; store: Store }): FastifyInstance {
   const app = Fastify({ logger: false });
   void app.register(cors, { origin: true });
 
@@ -70,6 +71,17 @@ export function buildApp(opts: { exchange: ExchangeAdapter; engine: Engine }): F
     const raw = req.query.limit != null ? Number(req.query.limit) : 200;
     const limit = Number.isFinite(raw) ? Math.max(1, Math.min(1000, raw)) : 200;
     return opts.engine.listEquity(limit);
+  });
+
+  app.get("/watchlist", async () => ({ symbols: opts.store.getWatchlist() }));
+
+  app.put<{ Body: { symbols?: unknown } }>("/watchlist", async (req, reply) => {
+    const raw = req.body?.symbols;
+    if (!Array.isArray(raw) || raw.some((s) => typeof s !== "string")) {
+      return reply.code(400).send({ error: "symbols must be an array of strings" });
+    }
+    opts.store.setWatchlist(raw as string[]);
+    return { ok: true };
   });
 
   void app.register(fastifyStatic, {

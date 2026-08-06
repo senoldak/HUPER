@@ -18,7 +18,7 @@ describe("server", () => {
   beforeAll(async () => {
     await engine.start();
     exchange.pushTick({ symbol: "BTC", bid: 100, ask: 101, mid: 100.5, timestamp: 1 });
-    app = buildApp({ exchange, engine });
+    app = buildApp({ exchange, engine, store });
   });
 
   afterAll(async () => { await app.close(); });
@@ -94,5 +94,23 @@ describe("server", () => {
     expect(Array.isArray(body)).toBe(true);
     expect(body.length).toBeGreaterThanOrEqual(1);
     expect(body.every((r) => r.bot_id === null)).toBe(true);
+  });
+
+  it("get watchlist returns an array", async () => {
+    const res = await app.inject({ method: "GET", url: "/watchlist" });
+    expect(res.statusCode).toBe(200);
+    expect(Array.isArray(res.json().symbols)).toBe(true);
+  });
+
+  it("put watchlist persists and get reads back", async () => {
+    const put = await app.inject({ method: "PUT", url: "/watchlist", payload: { symbols: ["BTC", "ETH"] } });
+    expect(put.statusCode).toBe(200);
+    const get = await app.inject({ method: "GET", url: "/watchlist" });
+    expect(get.json().symbols).toEqual(["BTC", "ETH"]);
+  });
+
+  it("put watchlist rejects non-array body", async () => {
+    const res = await app.inject({ method: "PUT", url: "/watchlist", payload: { symbols: "BTC" } });
+    expect(res.statusCode).toBe(400);
   });
 });

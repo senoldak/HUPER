@@ -48,7 +48,7 @@ async function main() {
     log.info("market data feed connected (paper)");
   }
 
-  const app = buildApp({ exchange, engine });
+  const app = buildApp({ exchange, engine, store });
   const port = Number(process.env.PORT ?? 3001);
   await app.listen({ port, host: "0.0.0.0" });
   log.info({ port }, "engine listening");
